@@ -2338,32 +2338,53 @@ void handleScanningPage() {
 
         <script>
             function startContinuousScanning() {
+                console.log('Starting fingerprint scanning...');
                 document.getElementById('status').innerText = "Starting scanning...";
+                document.getElementById('status').style.color = "#ffc107";  // Warning color
+                
                 fetch('/startContinuousScanning', { method: 'POST' })
-                    .then(response => response.text())
+                    .then(response => {
+                        console.log('Scan request response status:', response.status);
+                        return response.text();
+                    })
                     .then(data => {
+                        console.log('Scan request response:', data);
                         document.getElementById('status').innerText = "Scanning in progress...";
+                        document.getElementById('status').style.color = "#28a745";  // Success color
                     })
                     .catch(error => {
                         console.error('Error:', error);
+                        document.getElementById('status').innerText = "Error: " + error.message;
+                        document.getElementById('status').style.color = "#dc3545";  // Danger color
                         alert('An error occurred while starting continuous scanning.');
                     });
             }
 
             function stopContinuousScanning() {
+                console.log('Stopping fingerprint scanning...');
                 document.getElementById('status').innerText = "Stopping scanning...";
+                document.getElementById('status').style.color = "#ffc107";  // Warning color
+                
                 fetch('/stopContinuousScanning', { method: 'POST' })
-                    .then(response => response.text())
+                    .then(response => {
+                        console.log('Stop scan request response status:', response.status);
+                        return response.text();
+                    })
                     .then(data => {
+                        console.log('Stop scan request response:', data);
                         document.getElementById('status').innerText = "Scanning stopped.";
+                        document.getElementById('status').style.color = "#dc3545";  // Danger color
                     })
                     .catch(error => {
                         console.error('Error:', error);
+                        document.getElementById('status').innerText = "Error: " + error.message;
+                        document.getElementById('status').style.color = "#dc3545";  // Danger color
                         alert('An error occurred while stopping continuous scanning.');
                     });
             }
 
             function refreshPage() {
+                console.log('Refreshing page...');
                 location.reload();
             }
             
