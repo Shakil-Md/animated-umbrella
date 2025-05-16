@@ -512,6 +512,15 @@ void handleShowname() {
             margin-bottom: 1.5rem; /* More spacing */
             width: 100%;
         }
+        
+        /* Scrollable table container */
+        .table-responsive {
+            max-height: 65vh; /* 65% of viewport height */
+            overflow-y: auto;
+            overflow-x: hidden;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
 
         .table.glass-table thead th {
             background: rgba(52, 58, 64, 0.9) !important; /* Bootstrap darkish header, slightly transparent */
@@ -520,6 +529,9 @@ void handleShowname() {
             padding: 1rem 1.25rem;
             border: none;
             text-align: left; /* Align header text */
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
         .table.glass-table tbody td {
@@ -2211,6 +2223,9 @@ void handleScanningPage() {
                 font-weight: 600;
                 padding: 15px;
                 border: none;
+                position: sticky;
+                top: 0;
+                z-index: 10;
             }
 
             .table tbody td {
@@ -2440,7 +2455,7 @@ void a2z() {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     )rawliteral" + getGlassmorphismStyles() + R"rawliteral(
-    <style>
+       <style>
     :root {
         --primary-color: #2c3e50;
         --secondary-color: #3498db;
@@ -2449,6 +2464,7 @@ void a2z() {
         --dark-color: #2d5884;
     }
 
+    /* Base styles */
     body {
         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         min-height: 100vh;
@@ -2459,15 +2475,15 @@ void a2z() {
         justify-content: center;
         width: 100vw;
         box-sizing: border-box;
-        /* Remove any padding-top here as it's handled in navbar.html */
     }
 
+    /* Container and card styles */
     .container {
         max-width: 1200px;
         min-width: 0;
         width: 100%;
         padding: 1.5rem;
-        margin: 0 auto;
+        margin: 20px auto 0 auto;
         position: relative;
         display: flex;
         flex-direction: column;
@@ -2489,6 +2505,14 @@ void a2z() {
 
     .calendar-header {
         width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        position: relative;
+        padding: 0;
+        flex-wrap: wrap;
+        gap: 10px;
     }
 
     .nav-buttons {
@@ -2514,6 +2538,10 @@ void a2z() {
     }
 
     .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 8px;
+        padding: 0;
         justify-items: center;
         align-items: center;
         width: 100%;
@@ -2540,21 +2568,22 @@ void a2z() {
     }
 
     .card-body {
-        padding: 2rem;
+        padding: 1rem 2rem;
+        /* Reduced from 2rem to 1rem top/bottom */
     }
 
     .calendar {
         width: 100%;
         max-width: 1000px;
         min-width: fit-content;
-        margin: 0 auto;
-        margin-bottom: 20px;
+        margin: 0 auto 20px;
         padding: 0;
         box-sizing: border-box;
         position: relative;
     }
 
     .calendar-header {
+        width: 100%;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -2752,118 +2781,107 @@ void a2z() {
     }
 
     @media (max-width: 768px) {
-        @media (max-width: 768px) {
-            .glass-card{
-            width: 90% !important;
-
-            }
-
-            .glass-card,
-            .card-body,
-            .calendar,
-            .calendar-header,
-            .selection-controls {
-                align-items: center !important;
-                justify-content: center !important;
-                text-align: center !important;
-            }
-
-            .calendar-header {
-                flex-direction: column;
-            }
-
-            .selection-controls {
-                flex-direction: row;
-                margin-top: 10px;
-            }
+        .glass-card {
+            width: 95% !important;
+            padding: 10px;
+            margin: -40px auto 0 auto;
         }
 
         .calendar {
-            width: 100%;
-            margin: 0 8px;
-            /* Add left and right margin for mobile */
-            max-width: none;
-            min-width: 320px;
-            /* Optional: minimum width for the calendar */
-            box-sizing: border-box;
-        }
-
-        .calendar-grid {
-            width: 90%;
-            min-width: 0;
-            box-sizing: border-box;
-        }
-
-        .container {
-            padding: 1rem;
+            width: 95% !important;
+            margin: 0 auto;
+            padding: 0;
+            min-width: 280px;
+            /* Reduced from 320px */
         }
 
         .calendar-header {
             flex-direction: column;
-            margin-left: 5%;
-
-        }
-
-        .calendar-header h5 {
-            order: -1;
-            margin-bottom: 10px;
+            gap: 5px;
+            margin-bottom: 5px !important;
+            min-height: auto !important;
+            padding: 0 !important;
         }
 
         .selection-controls {
-            margin-left: 0;
+            flex-direction: row;
+            flex-wrap: wrap;
+            /* Add this to allow wrapping */
+            gap: 5px;
+            margin: 0 !important;
+            padding: 0 !important;
+            min-height: auto !important;
+            width: 100%;
+            /* Add this to ensure full width */
             justify-content: center;
+            /* Center the buttons */
         }
 
-        .calendar-day.header {
-            max-width: 30px;
+        .btn-glass {
+            height: 35px !important;
             min-height: 35px !important;
-            /* Reduced from 40px */
-            padding: 6px !important;
-        }
-
-        .calendar-day {
-            padding: 5px;
-            font-size: 0.9em;
-            min-width: 40px;
-            /* Ensures all date cells have a minimum width */
-            box-sizing: border-box;
-            min-height: 60px !important;
-            /* Reduced from 70px */
-            padding: 8px !important;
-            /* Reduced from 12px */
+            padding: 0 10px !important;
             font-size: 0.9em !important;
+            flex: 0 1 auto;
+            /* Add this to allow buttons to shrink */
+            white-space: nowrap;
+            /* Add this to prevent text wrapping inside buttons */
         }
 
-        .attendance-count {
-            font-size: 0.8em !important;
-            margin-top: 2px !important;
+        /* Add minimum spacing between calendar header elements */
+        .calendar-header {
+            gap: 10px !important;
         }
 
-        .table thead th {
-            padding: 10px;
-        }
-
-        .table tbody td {
-            padding: 8px 10px;
-        }
-    }
-
-    @media (max-width: 480px) {
         .calendar-day {
-            min-height: 50px !important;
-            /* Even smaller for very small screens */
-            padding: 6px !important;
+            min-width: 35px;
+            /* Reduced from 40px */
+            min-height: 45px !important;
+            padding: 4px !important;
             font-size: 0.85em !important;
         }
 
         .calendar-day.header {
+            min-width: 35px;
             min-height: 30px !important;
             padding: 4px !important;
+            font-size: 0.8em !important;
         }
 
         .attendance-count {
             font-size: 0.75em !important;
-            margin-top: 1px !important;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .glass-card {
+            width: 92% !important;
+            margin: -50px auto 0 auto;
+        }
+
+        .calendar {
+            width: 92% !important;
+            min-width: 260px;
+        }
+
+        .calendar-grid {
+            gap: 2px;
+        }
+
+        .calendar-day {
+            min-width: 32px;
+            min-height: 40px !important;
+            padding: 2px !important;
+            font-size: 0.8em !important;
+        }
+
+        .calendar-header {
+            padding: 0 5px;
+        }
+
+        .selection-controls {
+            gap: 3px;
+            /* Reduce gap further for smaller screens */
         }
     }
 
@@ -2939,15 +2957,588 @@ void a2z() {
         display: none;
     }
 
+    .month-picker {
+        cursor: pointer;
+        padding: 8px 16px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .month-picker:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .month-picker-menu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+        z-index: 1000;
+        width: 300px;
+        margin-top: 8px;
+    }
+
+    .month-picker-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding: 8px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .month-picker-header span {
+        font-size: 1.2em;
+        font-weight: bold;
+        min-width: 80px;
+        text-align: center;
+    }
+
+    .month-picker-header button {
+        padding: 4px 12px;
+        border: none;
+        background: rgba(52, 152, 219, 0.1);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .month-picker-header button:hover {
+        background: rgba(52, 152, 219, 0.2);
+    }
+
+    .month-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .month-item {
+        padding: 8px;
+        text-align: center;
+        cursor: pointer;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+
+    .month-item:hover {
+        background: rgba(52, 152, 219, 0.1);
+    }
+
+    .month-item.active {
+        background: rgba(52, 152, 219, 0.2);
+        font-weight: bold;
+    }
+
+    /* Media Queries */
     @media (min-width: 992px) {
-        .calendar-grid {
-            gap: 6px;
+        .container {
+            max-width: 1400px;
+            margin: 25px auto 0 auto;
+        }
+
+        .calendar {
+            width: 100%;
+            max-width: 1200px;
+            padding-top: 0;
+            /* Remove top padding */
+        }
+
+        .calendar-day {
+            min-width: 80px;
+            height: 40px !important;
+            /* Fixed height */
+            min-height: 40px !important;
+            padding: 8px !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .calendar-day.has-data {
+            height: 40px !important;
+            min-height: 40px !important;
+        }
+
+        .calendar-header {
+            margin-bottom: 5px;
+            /* Reduced from 10px */
+        }
+    }
+
+    @media (max-width: 768px) {
+        .glass-card {
+            width: 95% !important;
+            padding: 10px;
+            margin: -40px auto 0 auto;
+        }
+
+        .calendar {
+            width: 95% !important;
+            margin: 0 auto;
+            padding: 0;
+            min-width: 280px;
+            /* Reduced from 320px */
+        }
+
+        .calendar-header {
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 5px !important;
+            min-height: auto !important;
+            padding: 0 !important;
+        }
+
+        .selection-controls {
+            flex-direction: row;
+            flex-wrap: wrap;
+            /* Add this to allow wrapping */
+            gap: 5px;
+            margin: 0 !important;
+            padding: 0 !important;
+            min-height: auto !important;
+            width: 100%;
+            /* Add this to ensure full width */
+            justify-content: center;
+            /* Center the buttons */
+        }
+
+        .btn-glass {
+            height: 35px !important;
+            min-height: 35px !important;
+            padding: 0 10px !important;
+            font-size: 0.9em !important;
+            flex: 0 1 auto;
+            /* Add this to allow buttons to shrink */
+            white-space: nowrap;
+            /* Add this to prevent text wrapping inside buttons */
+        }
+
+        /* Add minimum spacing between calendar header elements */
+        .calendar-header {
+            gap: 10px !important;
+        }
+
+        .calendar-day {
+            min-width: 35px;
+            /* Reduced from 40px */
+            min-height: 45px !important;
+            padding: 4px !important;
+            font-size: 0.85em !important;
+        }
+
+        .calendar-day.header {
+            min-width: 35px;
+            min-height: 30px !important;
+            padding: 4px !important;
+            font-size: 0.8em !important;
         }
 
         .attendance-count {
-            font-size: 0.9em;
-            margin-top: 4px;
+            font-size: 0.75em !important;
         }
+    }
+
+    @media (max-width: 480px) {
+        .glass-card {
+            width: 92% !important;
+            margin: -50px auto 0 auto;
+        }
+
+        .calendar {
+            width: 92% !important;
+            min-width: 260px;
+        }
+
+        .calendar-grid {
+            gap: 2px;
+        }
+
+        .calendar-day {
+            min-width: 32px;
+            min-height: 40px !important;
+            padding: 2px !important;
+            font-size: 0.8em !important;
+        }
+
+        .calendar-header {
+            padding: 0 5px;
+        }
+
+        .selection-controls {
+            gap: 3px;
+            /* Reduce gap further for smaller screens */
+        }
+    }
+
+    .attendance-table {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90%;
+        max-width: 1000px;
+        max-height: 80vh;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-radius: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+        z-index: 1000;
+        display: none;
+        overflow: hidden;
+        color: white;
+    }
+
+    .table-container {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        background: rgba(44, 62, 80, 0.5);
+        color: white;
+    }
+
+    .table-title {
+        margin: 0;
+        font-size: 1.2em;
+        font-weight: 600;
+    }
+
+    .close-table {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .close-table:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: scale(1.1);
+    }
+
+    .overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(5px);
+        z-index: 999;
+        display: none;
+    }
+
+    .month-picker {
+        cursor: pointer;
+        padding: 8px 16px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .month-picker:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .month-picker-menu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+        z-index: 1000;
+        width: 300px;
+        margin-top: 8px;
+    }
+
+    .month-picker-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding: 8px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .month-picker-header span {
+        font-size: 1.2em;
+        font-weight: bold;
+        min-width: 80px;
+        text-align: center;
+    }
+
+    .month-picker-header button {
+        padding: 4px 12px;
+        border: none;
+        background: rgba(52, 152, 219, 0.1);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .month-picker-header button:hover {
+        background: rgba(52, 152, 219, 0.2);
+    }
+
+    .month-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .month-item {
+        padding: 8px;
+        text-align: center;
+        cursor: pointer;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+
+    .month-item:hover {
+        background: rgba(52, 152, 219, 0.1);
+    }
+
+    .month-item.active {
+        background: rgba(52, 152, 219, 0.2);
+        font-weight: bold;
+    }
+
+    /* Media Queries */
+    @media (min-width: 992px) {
+        .container {
+            max-width: 1400px;
+            margin: 25px auto 0 auto;
+        }
+
+        .calendar {
+            width: 100%;
+            max-width: 1200px;
+            padding-top: 0;
+            /* Remove top padding */
+        }
+
+        .calendar-day {
+            min-width: 80px;
+            height: 40px !important;
+            /* Fixed height */
+            min-height: 40px !important;
+            padding: 8px !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .calendar-day.has-data {
+            height: 40px !important;
+            min-height: 40px !important;
+        }
+
+        .calendar-header {
+            margin-bottom: 5px;
+            /* Reduced from 10px */
+        }
+    }
+
+    @media (max-width: 768px) {
+        .glass-card {
+            width: 95% !important;
+            padding: 10px;
+            margin: -40px auto 0 auto;
+        }
+
+        .calendar {
+            width: 95% !important;
+            margin: 0 auto;
+            padding: 0;
+            min-width: 280px;
+            /* Reduced from 320px */
+        }
+
+        .calendar-header {
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 5px !important;
+            min-height: auto !important;
+            padding: 0 !important;
+        }
+
+        .selection-controls {
+            flex-direction: row;
+            flex-wrap: wrap;
+            /* Add this to allow wrapping */
+            gap: 5px;
+            margin: 0 !important;
+            padding: 0 !important;
+            min-height: auto !important;
+            width: 100%;
+            /* Add this to ensure full width */
+            justify-content: center;
+            /* Center the buttons */
+        }
+
+        .btn-glass {
+            height: 35px !important;
+            min-height: 35px !important;
+            padding: 0 10px !important;
+            font-size: 0.9em !important;
+            flex: 0 1 auto;
+            /* Add this to allow buttons to shrink */
+            white-space: nowrap;
+            /* Add this to prevent text wrapping inside buttons */
+        }
+
+        /* Add minimum spacing between calendar header elements */
+        .calendar-header {
+            gap: 10px !important;
+        }
+
+        .calendar-day {
+            min-width: 35px;
+            /* Reduced from 40px */
+            min-height: 45px !important;
+            padding: 4px !important;
+            font-size: 0.85em !important;
+        }
+
+        .calendar-day.header {
+            min-width: 35px;
+            min-height: 30px !important;
+            padding: 4px !important;
+            font-size: 0.8em !important;
+        }
+
+        .attendance-count {
+            font-size: 0.75em !important;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .glass-card {
+            width: 92% !important;
+            margin: -50px auto 0 auto;
+        }
+
+        .calendar {
+            width: 92% !important;
+            min-width: 260px;
+        }
+
+        .calendar-grid {
+            gap: 2px;
+        }
+
+        .calendar-day {
+            min-width: 32px;
+            min-height: 40px !important;
+            padding: 2px !important;
+            font-size: 0.8em !important;
+        }
+
+        .calendar-header {
+            padding: 0 5px;
+        }
+
+        .selection-controls {
+            gap: 3px;
+            /* Reduce gap further for smaller screens */
+        }
+    }
+
+    .attendance-table {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90%;
+        max-width: 1000px;
+        max-height: 80vh;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-radius: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+        z-index: 1000;
+        display: none;
+        overflow: hidden;
+        color: white;
+    }
+
+    .table-container {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        background: rgba(44, 62, 80, 0.5);
+        color: white;
+    }
+
+    .table-title {
+        margin: 0;
+        font-size: 1.2em;
+        font-weight: 600;
+    }
+
+    .close-table {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .close-table:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: scale(1.1);
+    }
+
+    .overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(5px);
+        z-index: 999;
+        display: none;
     }
 
     .month-picker {
@@ -3093,6 +3684,7 @@ void a2z() {
 )rawliteral";
 
   // Collect attendance date strings in the JavaScript array
+  bool hasEntries = false;
   File root = SD.open("/Attendance");
   if (root) {
     File monthDir = root.openNextFile();
@@ -3107,6 +3699,7 @@ void a2z() {
             if (fileName.endsWith(".txt") && fileName.length() == 14) {
               String date = fileName.substring(0, fileName.length() - 4);
               html += "        \"" + date + "\",\n";
+              hasEntries = true;
             }
             file = dateDir.openNextFile();
           }
@@ -3116,6 +3709,13 @@ void a2z() {
       monthDir = root.openNextFile();
     }
     root.close();
+  }
+  
+  // Remove trailing comma if entries exist
+  if (hasEntries) {
+    // Trim the trailing comma and newline
+    html = html.substring(0, html.length() - 2);
+    html += "\n";
   }
 
   html += R"rawliteral(
@@ -3448,7 +4048,7 @@ void a2z() {
         renderMonthGrid(); // Re-render months for the new year
     }
 
-    // Add this new function to render month grid
+    // Function to render month grid
     function renderMonthGrid() {
         const monthGrid = document.querySelector('.month-grid');
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -3475,21 +4075,11 @@ void a2z() {
         });
     }
 
-    // Update the showMonthPicker function
-    function showMonthPicker() {
-        const menu = document.getElementById('monthPickerMenu');
-        const yearDisplay = document.getElementById('yearDisplay');
-
-        // Set current year
+    function updateYearDisplay() {
+      const yearDisplay = document.getElementById('yearDisplay');
+      if (yearDisplay) {
         yearDisplay.textContent = currentYear;
-
-        // Render month grid
-        renderMonthGrid();
-
-        menu.style.display = 'block';
-
-        // Close when clicking outside
-        document.addEventListener('click', closeMonthPickerOutside);
+      }
     }
 
     // Initialize the calendar when the page loads

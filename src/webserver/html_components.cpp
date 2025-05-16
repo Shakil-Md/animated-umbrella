@@ -4,11 +4,9 @@ String getNavbarHtml() {
   return R"rawliteral(
 <nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
   <div class="container-fluid px-3">
-    <div id="backButton" style="display:none;">
-      <button class="btn btn-link text-light me-2 d-lg-none" onclick="history.back()" style="font-size:1.3rem;" title="Back">
-        <i class="fas fa-arrow-left"></i>
-      </button>
-    </div>
+    <button id="backButton" class="btn btn-link text-light me-2 d-lg-none" onclick="history.back()" style="font-size:1.3rem; display:none;" title="Back">
+      <i class="fas fa-arrow-left"></i>
+    </button>
     <a class="navbar-brand fw-bold" href="/"><i class="fas fa-fingerprint me-2"></i>Smart Attendance</a>
     <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
@@ -111,6 +109,12 @@ String getNavbarHtml() {
     var path = window.location.pathname;
     var page = 'default';
     
+    // Show back button only if not on home page
+    var backButton = document.getElementById('backButton');
+    if (path !== '/' && path !== '/index.html') {
+      if (backButton) backButton.style.display = 'block';
+    }
+    
     if (path === '/login') {
       page = 'login';
     } else if (path === '/a2z' || path === '/scan' || path.includes('attendance')) {
@@ -122,12 +126,23 @@ String getNavbarHtml() {
     }
     
     document.body.setAttribute('data-page', page);
-    
-    // Show back button on all pages except home
-    if (path !== '/' && path !== '/index.html') {
-      document.getElementById('backButton').style.display = 'block';
-    }
+    console.log('Navbar applied background for page:', page);
   })();
+
+  // Add navbar auto-close functionality
+  document.addEventListener('click', function(event) {
+    const navbar = document.getElementById('navbarNav');
+    const navbarToggler = document.querySelector('.navbar-toggler');
+    
+    // Check if navbar is expanded and click is outside navbar
+    if (navbar.classList.contains('show') && 
+        !navbar.contains(event.target) && 
+        !navbarToggler.contains(event.target)) {
+      // Create and dispatch bootstrap collapse event
+      const bsCollapse = new bootstrap.Collapse(navbar);
+      bsCollapse.hide();
+    }
+  });
 </script>
 
 <!-- Include Bootstrap Bundle with Popper for navbar functionality -->

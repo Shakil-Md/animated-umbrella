@@ -1,4 +1,5 @@
 # Name,     Type, SubType, Offset,   Size
 nvs,        data, nvs,     0x9000,   0x6000
-app0,       app,  factory, 0x10000,  0xA00000
-coredump,   data, coredump, 0xA10000, 0x200000
+app0,       app,  factory, 0x10000,  0x900000
+coredump,   data, coredump, 0x910000, 0x100000
+spiffs,     data, spiffs,  0xA10000, 0x400000
