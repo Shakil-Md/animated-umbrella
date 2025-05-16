@@ -8,6 +8,9 @@
 #include "../components/network.h"
 #include <vector>
 
+// External variables
+extern bool fingerprintReady;  // Declare as external to access from main project file
+
 void handleRoot() {
   // Reset RGB LED
   rgbLED.setPixelColor(0, rgbLED.Color(0, 0, 0));
@@ -2066,6 +2069,22 @@ void handleStartContinuousScanning() {
   if (server.method() == HTTP_POST) {
     // Add debugging information
     Serial.println("handleStartContinuousScanning called - activating fingerprint scanning");
+    
+    // Check if fingerprint sensor is ready, try to reinitialize if not
+    if (!fingerprintReady) {
+      Serial.println("Fingerprint sensor not ready, attempting to reinitialize...");
+      
+      // Try to reinitialize the sensor
+      finger.begin(57600);
+      if (setupFingerprint()) {
+        fingerprintReady = true;
+        Serial.println("Fingerprint sensor successfully reinitialized");
+      } else {
+        Serial.println("Failed to reinitialize fingerprint sensor");
+        server.send(500, "text/plain", "Fingerprint sensor not ready. Please check connections.");
+        return;
+      }
+    }
     
     isBlinking = true;
     setRGBColor(0, 0, 55);  // Set RGB LED to blue when starting scanning

@@ -248,6 +248,15 @@ void loop() {
   // Handle server requests
   server.handleClient();
 
+  // Add debug logging for scanning status
+  static unsigned long lastScanStatusCheck = 0;
+  if (millis() - lastScanStatusCheck >= 5000) {  // Check every 5 seconds
+    Serial.println("Scanning conditions: isBlinking=" + String(isBlinking ? "true" : "false") + 
+                    ", fingerprintReady=" + String(fingerprintReady ? "true" : "false") + 
+                    ", Will scan: " + String((isBlinking && fingerprintReady) ? "YES" : "NO"));
+    lastScanStatusCheck = millis();
+  }
+
   // Handle fingerprint scanning with error checking
   if (isBlinking && fingerprintReady) {
     continuousFingerprintScan();

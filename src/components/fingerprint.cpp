@@ -120,6 +120,13 @@ void continuousFingerprintScan() {
   static bool scanningInProgress = false;
   static unsigned long lastScanTime = 0;
   static unsigned long lastStatusTime = 0;
+  static unsigned long lastDebugTime = 0;
+  
+  // Debug log every 10 seconds to check if the function is being called
+  if (millis() - lastDebugTime > 10000) { // Every 10 seconds
+    Serial.println("continuousFingerprintScan function called, isBlinking = " + String(isBlinking ? "true" : "false"));
+    lastDebugTime = millis();
+  }
 
   if (!isBlinking) {
     if (scanningInProgress) {
