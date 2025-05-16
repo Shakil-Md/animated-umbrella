@@ -10,7 +10,6 @@ void handleLogout();
 void showLoginPage(bool showError);
 String generateCSRFToken();
 bool verifyCSRFToken();
-int getFreeMemory();
 
 #endif // SECURITY_UTILS_H 
  

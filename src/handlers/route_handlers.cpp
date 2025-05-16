@@ -2064,8 +2064,16 @@ void handleUpdateAdmin() {
 
 void handleStartContinuousScanning() {
   if (server.method() == HTTP_POST) {
+    // Add debugging information
+    Serial.println("handleStartContinuousScanning called - activating fingerprint scanning");
+    
     isBlinking = true;
     setRGBColor(0, 0, 55);  // Set RGB LED to blue when starting scanning
+    
+    // Log the current scanning status
+    Serial.println("isBlinking set to: " + String(isBlinking ? "true" : "false"));
+    Serial.println("fingerprintReady status: " + String(fingerprintReady ? "true" : "false"));
+    
     server.send(200, "text/plain", "Continuous scanning started");
   } else {
     server.send(405, "text/plain", "Method Not Allowed");

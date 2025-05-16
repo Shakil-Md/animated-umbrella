@@ -119,6 +119,7 @@ void scanFingerprint() {
 void continuousFingerprintScan() {
   static bool scanningInProgress = false;
   static unsigned long lastScanTime = 0;
+  static unsigned long lastStatusTime = 0;
 
   if (!isBlinking) {
     if (scanningInProgress) {
@@ -137,6 +138,12 @@ void continuousFingerprintScan() {
     setRGBColor(0, 0, 55);  // Set RGB LED to blue when starting
   }
 
+  // Provide periodic status updates to confirm scanning is active
+  if (millis() - lastStatusTime > 5000) { // Every 5 seconds
+    Serial.println("Continuous scan active - waiting for fingerprint");
+    lastStatusTime = millis();
+  }
+
   // Update time display periodically
   if (millis() - lastDisplayUpdate >= DISPLAY_UPDATE_INTERVAL) {
     updateTimeDisplay();
@@ -146,10 +153,23 @@ void continuousFingerprintScan() {
   if (millis() - lastScanTime < 1000) {  // Add a 1-second delay between scans
     return;
   }
+  
+  // Print status information
+  uint8_t fingerStatus = finger.getImage();
+  if (fingerStatus != FINGERPRINT_NOFINGER && fingerStatus != FINGERPRINT_OK) {
+    Serial.print("Fingerprint sensor status: ");
+    switch (fingerStatus) {
+      case FINGERPRINT_PACKETRECIEVEERR: Serial.println("Communication error"); break;
+      case FINGERPRINT_IMAGEFAIL: Serial.println("Imaging error"); break;
+      default: Serial.println("Unknown error: " + String(fingerStatus)); break;
+    }
+  }
+  
   lastScanTime = millis();
 
   // Perform fingerprint scanning
-  if (finger.getImage() == FINGERPRINT_OK) {
+  if (fingerStatus == FINGERPRINT_OK) {
+    Serial.println("Image taken, processing...");
     if (finger.image2Tz() == FINGERPRINT_OK) {
       if (finger.fingerFastSearch() == FINGERPRINT_OK) {
         int fingerId = finger.fingerID;

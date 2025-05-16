@@ -3,6 +3,7 @@
 #include "src/utils/time_utils.h"
 #include "src/utils/sd_utils.h"
 #include "src/utils/security_utils.h"
+#include "src/utils/memory_utils.h"
 #include "src/components/fingerprint.h"
 #include "src/components/network.h"
 #include "src/webserver/server_init.h"

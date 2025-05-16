@@ -261,8 +261,4 @@ bool verifyCSRFToken() {
   }
   String token = server.arg("csrf_token");
   return token == csrfToken;
-}
-
-int getFreeMemory() {
-  return ESP.getFreeHeap();
 } 
