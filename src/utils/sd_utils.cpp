@@ -165,7 +165,7 @@ void loadStudentData() {
 String getAttendanceFilePath(String dateStr) {
   // Extract month from date (format: DD-MM-YYYY)
   String month = dateStr.substring(3, 5);
-  return "/Attendance/" + month + "/" + dateStr + ".txt";
+  return "/Attendance/" + month + "/" + dateStr + ".csv";
 }
 
 bool ensureAttendanceDirectory(String dateStr) {
@@ -342,5 +342,90 @@ bool readCSVLine(File &file, String &id, String &roll, String &name) {
   roll = unescapeCSV(line.substring(pos1 + 1, pos2));
   name = unescapeCSV(line.substring(pos2 + 1));
   
+  return true;
+}
+
+// Add new functions for CSV attendance handling
+bool writeAttendanceCSVLine(File &file, String roll, String name, String id, String inTime, String outTime) {
+  if (!file) return false;
+  
+  // Escape fields that might contain commas
+  roll = escapeCSV(roll);
+  name = escapeCSV(name);
+  id = escapeCSV(id);
+  inTime = escapeCSV(inTime);
+  outTime = escapeCSV(outTime);
+  
+  // Write the CSV line
+  file.print(roll);
+  file.print(",");
+  file.print(name);
+  file.print(",");
+  file.print(id);
+  file.print(",");
+  file.print(inTime);
+  file.print(",");
+  file.println(outTime);
+  
+  return true;
+}
+
+bool readAttendanceCSVLine(File &file, String &roll, String &name, String &id, String &inTime, String &outTime) {
+  if (!file.available()) {
+    return false;
+  }
+
+  String line = file.readStringUntil('\n');
+  line.trim();
+  if (line.length() == 0) {
+    return false;
+  }
+
+  // Split the line into fields
+  int fieldCount = 0;
+  int startPos = 0;
+  int endPos = 0;
+  bool inQuotes = false;
+  String fields[5];  // Roll, Name, ID, In Time, Out Time
+
+  for (int i = 0; i < line.length(); i++) {
+    if (line[i] == '"') {
+      inQuotes = !inQuotes;
+    } else if (line[i] == ',' && !inQuotes) {
+      if (fieldCount < 5) {
+        fields[fieldCount] = line.substring(startPos, i);
+        fieldCount++;
+        startPos = i + 1;
+      }
+    }
+  }
+  // Get the last field
+  if (fieldCount < 5) {
+    fields[fieldCount] = line.substring(startPos);
+    fieldCount++;
+  }
+
+  // Check if we have all required fields
+  if (fieldCount != 5) {
+    return false;
+  }
+
+  // Unescape and assign fields
+  roll = unescapeCSV(fields[0]);
+  name = unescapeCSV(fields[1]);
+  id = unescapeCSV(fields[2]);
+  inTime = unescapeCSV(fields[3]);
+  outTime = unescapeCSV(fields[4]);
+
+  return true;
+}
+
+bool createAttendanceCSVFile(String filePath) {
+  File file = SD.open(filePath, FILE_WRITE);
+  if (!file) return false;
+  
+  // Write CSV header
+  file.println("Roll Number,Name,Fingerprint ID,In Time,Out Time");
+  file.close();
   return true;
 } 

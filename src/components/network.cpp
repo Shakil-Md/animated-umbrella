@@ -233,52 +233,31 @@ void syncAttendanceWithFirebase() {
         File file = dateFile.openNextFile();
         while (file) {
           String fileName = String(file.name());
-          if (fileName.endsWith(".txt") && fileName.length() == 14) { // DD-MM-YYYY.txt
+          if (fileName.endsWith(".csv") && fileName.length() == 14) { // DD-MM-YYYY.csv
             String date = fileName.substring(0, fileName.length() - 4);
             Serial.println("Syncing attendance file: " + date);
             File attendanceFile = SD.open("/Attendance/" + month + "/" + fileName, FILE_READ);
             if (attendanceFile) {
+              // Skip header line
+              if (attendanceFile.available()) {
+                attendanceFile.readStringUntil('\n');
+              }
+
               while (attendanceFile.available()) {
-                String line = attendanceFile.readStringUntil('\n');
-                line.trim();
-                if (line.startsWith("<tr>") && line.endsWith("</tr>")) {
-                  // Extract data from the HTML table row
-                  int rollStart = line.indexOf("<td>") + 4;
-                  int rollEnd = line.indexOf("</td>", rollStart);
-                  int nameStart = line.indexOf("<td>", rollEnd) + 4;
-                  int nameEnd = line.indexOf("</td>", nameStart);
-                  int idStart = line.indexOf("<td>", nameEnd) + 4;
-                  int idEnd = line.indexOf("</td>", idStart);
-                  int inTimeStart = line.indexOf("<td>", idEnd) + 4;
-                  int inTimeEnd = line.indexOf("</td>", inTimeStart);
-                  int outTimeStart = line.indexOf("<td>", inTimeEnd) + 4;
-                  int outTimeEnd = line.indexOf("</td>", outTimeStart);
+                String roll, name, id, inTime, outTime;
+                if (readAttendanceCSVLine(attendanceFile, roll, name, id, inTime, outTime)) {
+                  String path = "/attendance/" + month + "/" + date + "/" + id;
+                  FirebaseJson json;
+                  json.set("name", name);
+                  json.set("rollNumber", roll);
+                  json.set("inTime", inTime);
+                  json.set("outTime", outTime);
 
-                  if (rollStart > 0 && rollEnd > 0 && nameStart > 0 && nameEnd > 0 && idStart > 0 && idEnd > 0 && inTimeStart > 0 && inTimeEnd > 0) {
-                    String rollNumber = line.substring(rollStart, rollEnd);
-                    String name = line.substring(nameStart, nameEnd);
-                    String id = line.substring(idStart, idEnd);
-                    String inTime = line.substring(inTimeStart, inTimeEnd);
-                    String outTime = outTimeStart > 0 && outTimeEnd > 0 ? line.substring(outTimeStart, outTimeEnd) : "-";
-
-                    // Remove [U] marker if present
-                    if (name.endsWith("[U]")) {
-                      name = name.substring(0, name.length() - 3);
-                    }
-
-                    String path = "/attendance/" + month + "/" + date + "/" + id;
-                    FirebaseJson json;
-                    json.set("name", name);
-                    json.set("rollNumber", rollNumber);
-                    json.set("inTime", inTime);
-                    json.set("outTime", outTime);
-
-                    if (!Firebase.setJSON(firebaseData, path.c_str(), json)) {
-                      Serial.println("Failed to upload attendance record - Date: " + date + ", ID: " + id);
-                      Serial.println("Error: " + firebaseData.errorReason());
-                    } else {
-                      Serial.println("Uploaded attendance record - Date: " + date + ", ID: " + id);
-                    }
+                  if (!Firebase.setJSON(firebaseData, path.c_str(), json)) {
+                    Serial.println("Failed to upload attendance record - Date: " + date + ", ID: " + id);
+                    Serial.println("Error: " + firebaseData.errorReason());
+                  } else {
+                    Serial.println("Uploaded attendance record - Date: " + date + ", ID: " + id);
                   }
                 }
               }

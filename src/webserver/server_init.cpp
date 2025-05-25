@@ -201,6 +201,14 @@ void serverInit() {
     handleReinitializeFingerprint();
   });
 
+  server.on("/exportAttendance", HTTP_GET, []() {
+    if (!checkAuth()) {
+      server.send(401, "text/plain", "Unauthorized");
+      return;
+    }
+    handleExportAttendance();
+  });
+
   server.on("/updateAdmin", HTTP_POST, []() {
     if (!checkAuth()) {
       server.send(401, "text/plain", "Unauthorized");

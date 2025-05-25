@@ -183,30 +183,27 @@ void continuousFingerprintScan() {
         String currentDate = getCurrentDate();
         String currentTime = getCurrentTime12(); // Use 12-hour format
         
-
         // Check if this fingerprint has an entry for today
         bool hasEntry = false;
         String inTime = "";
         String outTime = "";
-        String existingRow = "";
         String foundRoll = "";
         String foundName = "";
 
-        // First, get the name and roll number
+        // First, get the name and roll number from students.csv
         File nameFile = SD.open("/students.csv", FILE_READ);
         if (nameFile) {
+          // Skip header line
+          if (nameFile.available()) {
+            nameFile.readStringUntil('\n');
+          }
+          
           while (nameFile.available()) {
-            String line = nameFile.readStringUntil('\n');
-            int firstSpace = line.indexOf(' ');
-            if (firstSpace > 0) {
-              String idStr = line.substring(0, firstSpace);
-              if (idStr.toInt() == fingerId) {
-                String remaining = line.substring(firstSpace + 1);
-                int secondSpace = remaining.indexOf(' ');
-                if (secondSpace > 0) {
-                  foundRoll = remaining.substring(0, secondSpace);
-                  foundName = remaining.substring(secondSpace + 1);
-                }
+            String id, roll, nameStr;
+            if (readCSVLine(nameFile, id, roll, nameStr)) {
+              if (id.toInt() == fingerId) {
+                foundRoll = roll;
+                foundName = nameStr;
                 break;
               }
             }
@@ -218,170 +215,165 @@ void continuousFingerprintScan() {
           // Now check for existing entry
           String filePath = getAttendanceFilePath(currentDate);
           if (ensureAttendanceDirectory(currentDate)) {
+            // Create file with header if it doesn't exist
+            if (!SD.exists(filePath)) {
+              if (!createAttendanceCSVFile(filePath)) {
+                Serial.println("Failed to create attendance file");
+                displayStatusMessage("File creation failed", TFT_RED);
+                return;
+              }
+            }
+
             File file = SD.open(filePath, FILE_READ);
             if (file) {
+              // Skip header line
+              if (file.available()) {
+                file.readStringUntil('\n');
+              }
+
               while (file.available()) {
-                String line = file.readStringUntil('\n');
-                line.trim();
-                if (line.startsWith("<tr>") && line.endsWith("</tr>")) {
-                  // Extract fingerprint ID from the line
-                  int idStart = line.indexOf("<td>", line.indexOf("<td>", line.indexOf("<td>") + 4) + 4) + 4;
-                  int idEnd = line.indexOf("</td>", idStart);
-                  if (idStart > 0 && idEnd > 0) {
-                    String lineId = line.substring(idStart, idEnd);
-                    if (lineId.toInt() == fingerId) {
-                      hasEntry = true;
-                      existingRow = line;
-                      // Extract in-time and out-time
-                      int inTimeStart = line.indexOf("<td>", idEnd) + 4;
-                      int inTimeEnd = line.indexOf("</td>", inTimeStart);
-                      int outTimeStart = line.indexOf("<td>", inTimeEnd) + 4;
-                      int outTimeEnd = line.indexOf("</td>", outTimeStart);
-                      if (inTimeStart > 0 && inTimeEnd > 0) {
-                        inTime = line.substring(inTimeStart, inTimeEnd);
-                        inTime.trim();
-                      }
-                      if (outTimeStart > 0 && outTimeEnd > 0) {
-                        outTime = line.substring(outTimeStart, outTimeEnd);
-                        outTime.trim();
-                      }
-                    }
+                String roll, name, id, in, out;
+                if (readAttendanceCSVLine(file, roll, name, id, in, out)) {
+                  if (id.toInt() == fingerId) {
+                    hasEntry = true;
+                    inTime = in;
+                    outTime = out;
+                    break;
                   }
                 }
               }
               file.close();
-            }
 
-            // Write the attendance record to the file
-            if (!hasEntry) {
-              // First scan - record in-time
-              file = SD.open(filePath, FILE_APPEND);
-              if (file) {
-                file.println("<tr><td>" + foundRoll + "</td><td>" + foundName + "</td><td>" + String(fingerId) + "</td><td>" + currentTime + "</td><td>-</td></tr>");
-                file.close();
-                Serial.println("In-time recorded - ID: " + String(fingerId) + ", Roll: " + foundRoll + ", Name: " + foundName);
-
-                // Upload to Firebase immediately
-                if (Firebase.ready()) {
-                  String month = currentDate.substring(3, 5);
-                  String path = "/attendance/" + month + "/" + currentDate + "/" + String(fingerId);
-                  FirebaseJson json;
-                  json.set("name", foundName);
-                  json.set("rollNumber", foundRoll);
-                  json.set("inTime", currentTime);
-                  json.set("outTime", "-");
-
-                  if (Firebase.setJSON(firebaseData, path.c_str(), json)) {
-                    Serial.println("Attendance uploaded to Firebase successfully");
-                  } else {
-                    Serial.println("Failed to upload attendance to Firebase");
-                    Serial.println("Error: " + firebaseData.errorReason());
-                  }
-                }
-
-                // Update display
-                displayAttendanceRecord(fingerId, foundRoll, foundName, true);
-                setRGBColor(0, 55, 0);  // Set RGB LED to green for successful scan
-                delay(1000);            // Keep green for 1 second
-                setRGBColor(0, 0, 55);  // Return to blue
-              }
-            } else if (inTime != "" && outTime == "-") {
-              // Second scan - update with out-time
-              Serial.println("Processing out-time update...");
-              Serial.println("Current time: " + currentTime);
-              Serial.println("Existing row: " + existingRow);
-
-              // First, read all lines
-              File file = SD.open(filePath, FILE_READ);
-              if (file) {
-                Serial.println("Successfully opened file for reading");
-                String trimmedExistingRow = existingRow;
-                trimmedExistingRow.trim();
-                
-                // Create a new temp file to avoid memory issues with large strings
-                String tempFilePath = filePath + ".tmp";
-                File tempFile = SD.open(tempFilePath, FILE_WRITE);
-                
-                if (tempFile) {
-                  // Process line by line to avoid memory issues
-                  while (file.available()) {
-                    String line = file.readStringUntil('\n');
-                    line.trim();
-                    if (line != trimmedExistingRow) {
-                      tempFile.println(line);
-                    } else {
-                      // Replace the existing row with the updated one
-                      String newRow = "<tr><td>" + foundRoll + "</td><td>" + foundName + "</td><td>" + String(fingerId) + "</td><td>" + inTime + "</td><td>" + currentTime + "</td></tr>";
-                      Serial.println("New row to be written: " + newRow);
-                      tempFile.println(newRow);
-                    }
-                  }
+              // Write the attendance record to the file
+              if (!hasEntry) {
+                // First scan - record in-time
+                file = SD.open(filePath, FILE_APPEND);
+                if (file) {
+                  writeAttendanceCSVLine(file, foundRoll, foundName, String(fingerId), currentTime, "-");
                   file.close();
-                  tempFile.close();
-                  
-                  // Delete original file and rename temp file
-                  SD.remove(filePath);
-                  SD.rename(tempFilePath, filePath);
-                  
-                  Serial.println("Successfully wrote updated data to file");
+                  Serial.println("In-time recorded - ID: " + String(fingerId) + ", Roll: " + foundRoll + ", Name: " + foundName);
 
-                  // Upload updated out-time to Firebase
+                  // Upload to Firebase immediately
                   if (Firebase.ready()) {
                     String month = currentDate.substring(3, 5);
                     String path = "/attendance/" + month + "/" + currentDate + "/" + String(fingerId);
                     FirebaseJson json;
                     json.set("name", foundName);
                     json.set("rollNumber", foundRoll);
-                    json.set("inTime", inTime);
-                    json.set("outTime", currentTime);
+                    json.set("inTime", currentTime);
+                    json.set("outTime", "-");
 
                     if (Firebase.setJSON(firebaseData, path.c_str(), json)) {
-                      Serial.println("Out-time uploaded to Firebase successfully");
+                      Serial.println("Attendance uploaded to Firebase successfully");
                     } else {
-                      Serial.println("Failed to upload out-time to Firebase");
+                      Serial.println("Failed to upload attendance to Firebase");
                       Serial.println("Error: " + firebaseData.errorReason());
                     }
                   }
 
                   // Update display
-                  displayAttendanceRecord(fingerId, foundRoll, foundName, false);
+                  displayAttendanceRecord(fingerId, foundRoll, foundName, true);
                   setRGBColor(0, 55, 0);  // Set RGB LED to green for successful scan
                   delay(1000);            // Keep green for 1 second
                   setRGBColor(0, 0, 55);  // Return to blue
+                }
+              } else if (outTime == "-") {
+                // Second scan - update out-time
+                // Create a temporary file
+                String tempPath = filePath + ".tmp";
+                File tempFile = SD.open(tempPath, FILE_WRITE);
+                if (tempFile) {
+                  // Write header
+                  tempFile.println("Roll Number,Name,Fingerprint ID,In Time,Out Time");
+
+                  // Copy all records, updating the matching one
+                  file = SD.open(filePath, FILE_READ);
+                  if (file) {
+                    // Skip header
+                    if (file.available()) {
+                      file.readStringUntil('\n');
+                    }
+
+                    while (file.available()) {
+                      String roll, name, id, in, out;
+                      if (readAttendanceCSVLine(file, roll, name, id, in, out)) {
+                        if (id.toInt() == fingerId) {
+                          // Update the out time for this record
+                          writeAttendanceCSVLine(tempFile, roll, name, id, in, currentTime);
+                        } else {
+                          // Copy the record as is
+                          writeAttendanceCSVLine(tempFile, roll, name, id, in, out);
+                        }
+                      }
+                    }
+                    file.close();
+                  }
+                  tempFile.close();
+
+                  // Replace the original file with the temporary file
+                  if (SD.remove(filePath) && SD.rename(tempPath, filePath)) {
+                    Serial.println("Out-time recorded - ID: " + String(fingerId) + ", Roll: " + foundRoll + ", Name: " + foundName);
+
+                    // Upload to Firebase
+                    if (Firebase.ready()) {
+                      String month = currentDate.substring(3, 5);
+                      String path = "/attendance/" + month + "/" + currentDate + "/" + String(fingerId);
+                      FirebaseJson json;
+                      json.set("name", foundName);
+                      json.set("rollNumber", foundRoll);
+                      json.set("inTime", inTime);
+                      json.set("outTime", currentTime);
+
+                      if (Firebase.setJSON(firebaseData, path.c_str(), json)) {
+                        Serial.println("Out-time uploaded to Firebase successfully");
+                      } else {
+                        Serial.println("Failed to upload out-time to Firebase");
+                        Serial.println("Error: " + firebaseData.errorReason());
+                      }
+                    }
+
+                    // Update display
+                    displayAttendanceRecord(fingerId, foundRoll, foundName, false);
+                    setRGBColor(0, 55, 0);  // Set RGB LED to green for successful scan
+                    delay(1000);            // Keep green for 1 second
+                    setRGBColor(0, 0, 55);  // Return to blue
+                  } else {
+                    Serial.println("Failed to update attendance file");
+                    displayStatusMessage("Failed to update record", TFT_RED);
+                  }
                 } else {
                   Serial.println("Failed to create temp file");
                   displayStatusMessage("Failed to update record", TFT_RED);
                 }
               } else {
-                Serial.println("Failed to open file for reading");
-                displayStatusMessage("Failed to read record", TFT_RED);
+                Serial.println("Student already marked present and out");
+                displayStatusMessage("Already marked out", TFT_YELLOW);
+                setRGBColor(55, 35, 0);  // Set RGB LED to orange
+                delay(1000);            // Keep orange for 1 second
+                setRGBColor(0, 0, 55);  // Return to blue
               }
-            } else if (inTime != "" && outTime != "-") {
-              // Already has both in-time and out-time - duplicate entry
-              Serial.println("Duplicate entry - ID: " + String(fingerId) + ", Roll: " + foundRoll + ", Name: " + foundName);
-
-              // Update display
-              tft.fillRect(0, 45, 128, 83, TFT_WHITE);
-              tft.setTextColor(TFT_BLACK);
-              tft.setTextSize(1);
-              tft.setCursor(2, 50);
-              tft.println("Duplicate Entry!");
-              tft.setCursor(2, 60);
-              tft.println("ID: " + String(fingerId));
-              tft.setCursor(2, 70);
-              tft.println("Roll: " + foundRoll);
-              tft.setCursor(2, 80);
-              tft.println("Name: " + foundName);
-              tft.setCursor(2, 90);
-              tft.println("Already recorded");
-
-              setRGBColor(55, 55, 0);  // Set RGB LED to yellow for duplicate
-              delay(1000);             // Keep yellow for 1 second
-              setRGBColor(0, 0, 55);   // Return to blue
             }
           }
+        } else {
+          Serial.println("Fingerprint ID not found in students database");
+          displayStatusMessage("ID not found", TFT_RED);
+          setRGBColor(55, 0, 0);  // Set RGB LED to red
+          delay(1000);            // Keep red for 1 second
+          setRGBColor(0, 0, 55);  // Return to blue
         }
+      } else {
+        Serial.println("No match found");
+        displayStatusMessage("No match found", TFT_RED);
+        setRGBColor(55, 0, 0);  // Set RGB LED to red
+        delay(1000);            // Keep red for 1 second
+        setRGBColor(0, 0, 55);  // Return to blue
       }
+    } else {
+      Serial.println("Failed to convert image");
+      displayStatusMessage("Image error", TFT_RED);
+      setRGBColor(55, 0, 0);  // Set RGB LED to red
+      delay(1000);            // Keep red for 1 second
+      setRGBColor(0, 0, 55);  // Return to blue
     }
   }
 } 

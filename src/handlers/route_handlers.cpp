@@ -8,6 +8,11 @@
 #include "../components/network.h"
 #include <vector>
 
+// Function prototypes for export functionality
+void exportAllAttendanceRecords();
+void exportMonthAttendanceRecords(String month, String year);
+void exportSelectedDatesAttendanceRecords(const std::vector<String>& dates);
+
 // External variables
 extern bool fingerprintReady;  // Declare as external to access from main project file
 
@@ -54,10 +59,17 @@ void handleRoot() {
   if (sdCardOk && SD.exists(todayFile)) {
     File file = SD.open(todayFile, FILE_READ);
     if (file) {
+      // Skip header line
+      if (file.available()) {
+        file.readStringUntil('\n');
+      }
+
       while (file.available()) {
-        String line = file.readStringUntil('\n');
-        if (line.startsWith("<tr>")) {
-          presentCount++;
+        String roll, name, id, inTime, outTime;
+        if (readAttendanceCSVLine(file, roll, name, id, inTime, outTime)) {
+          if (id.toInt() > 0) {  // Only count if fingerprint ID is valid
+            presentCount++;
+          }
         }
       }
       file.close();
@@ -1477,18 +1489,16 @@ void handleGetAttendanceCount() {
     if (SD.exists(filePath)) {
       File file = SD.open(filePath, FILE_READ);
       if (file) {
+        // Skip header line
+        if (file.available()) {
+          file.readStringUntil('\n');
+        }
+
         while (file.available()) {
-          String line = file.readStringUntil('\n');
-          line.trim();
-          if (line.startsWith("<tr>") && line.endsWith("</tr>")) {
-            // Only count valid attendance records
-            int idStart = line.indexOf("<td>", line.indexOf("<td>", line.indexOf("<td>") + 4) + 4) + 4;
-            int idEnd = line.indexOf("</td>", idStart);
-            if (idStart > 0 && idEnd > 0) {
-              String id = line.substring(idStart, idEnd);
-              if (id.toInt() > 0) {  // Only count if fingerprint ID is valid
-                presentCount++;
-              }
+          String roll, name, id, inTime, outTime;
+          if (readAttendanceCSVLine(file, roll, name, id, inTime, outTime)) {
+            if (id.toInt() > 0) {  // Only count if fingerprint ID is valid
+              presentCount++;
             }
           }
         }
@@ -1504,54 +1514,80 @@ void handleGetAttendanceCount() {
 }
 
 void handleGetAttendanceData() {
-  if (server.hasArg("date")) {
-    String date = server.arg("date");
-    String filePath = getAttendanceFilePath(date);
-    
-    if (SD.exists(filePath)) {
-      String html = "";
-      html += "<table class='table table-bordered table-striped'>";
-      html += "<thead class='thead-dark'>";
-      html += "<tr><th>Roll Number</th><th>Name</th><th>Fingerprint ID</th><th>In Time</th><th>Out Time</th></tr>";
-      html += "</thead><tbody>";
-      
-      File file = SD.open(filePath, FILE_READ);
-      if (file) {
-        while (file.available()) {
-          String line = file.readStringUntil('\n');
-          line.trim();
-          if (line.length() > 0) {
-            int nameStart = line.indexOf("<td>", line.indexOf("<td>") + 4) + 4;
-            int nameEnd = line.indexOf("</td>", nameStart);
-            if (nameStart > 0 && nameEnd > 0) {
-              String name = line.substring(nameStart, nameEnd);
-              if (name.endsWith("[U]")) {
-                String cleanName = name.substring(0, name.length() - 3);
-                line = line.substring(0, nameStart) + cleanName + line.substring(nameEnd);
-              }
+  if (!server.hasArg("date")) {
+    server.send(400, "text/plain", "Date parameter required");
+    return;
+  }
+
+  String date = server.arg("date");
+  String filePath = getAttendanceFilePath(date);
+  
+  if (!SD.exists(filePath)) {
+    server.send(404, "text/plain", "No attendance records found for " + date);
+    return;
+  }
+
+  File file = SD.open(filePath);
+  if (!file) {
+    server.send(500, "text/plain", "Failed to open attendance file");
+    return;
+  }
+
+  String html = "<table class='table table-striped'>";
+  html += "<thead><tr><th>Roll Number</th><th>Name</th><th>ID</th><th>In Time</th><th>Out Time</th></tr></thead>";
+  html += "<tbody>";
+
+  // Skip header line
+  String header = file.readStringUntil('\n');
+  
+  bool hasRecords = false;
+  while (file.available()) {
+    String line = file.readStringUntil('\n');
+    if (line.length() > 0) {
+      hasRecords = true;
+      String roll, name, id, inTime, outTime;
+      int commaIndex = line.indexOf(',');
+      if (commaIndex != -1) {
+        roll = line.substring(0, commaIndex);
+        line = line.substring(commaIndex + 1);
+        
+        commaIndex = line.indexOf(',');
+        if (commaIndex != -1) {
+          name = line.substring(0, commaIndex);
+          line = line.substring(commaIndex + 1);
+          
+          commaIndex = line.indexOf(',');
+          if (commaIndex != -1) {
+            id = line.substring(0, commaIndex);
+            line = line.substring(commaIndex + 1);
+            
+            commaIndex = line.indexOf(',');
+            if (commaIndex != -1) {
+              inTime = line.substring(0, commaIndex);
+              outTime = line.substring(commaIndex + 1);
             }
-            html += line;
           }
         }
-        file.close();
-      } else {
-        html += "<tr><td colspan='5' class='text-center'>Failed to open attendance file.</td></tr>";
       }
       
-      html += "</tbody></table>";
-      
-      if (html.indexOf("<tr class=") == -1 && html.indexOf("<tr>") == -1) {
-        // No records found
-        html = "<div class='alert alert-info text-center p-4 rounded shadow-sm'><i class='fas fa-info-circle me-2'></i>No attendance records found for this date.</div>";
-      }
-      
-      server.send(200, "text/html", html);
-    } else {
-      server.send(404, "text/html", "<div class='alert alert-warning text-center p-4 rounded shadow-sm'><i class='fas fa-exclamation-triangle me-2'></i>No attendance file found for the selected date.</div>");
+      html += "<tr>";
+      html += "<td>" + roll + "</td>";
+      html += "<td>" + name + "</td>";
+      html += "<td>" + id + "</td>";
+      html += "<td>" + inTime + "</td>";
+      html += "<td>" + outTime + "</td>";
+      html += "</tr>";
     }
-  } else {
-    server.send(400, "text/html", "<div class='alert alert-danger text-center p-4 rounded shadow-sm'><i class='fas fa-times-circle me-2'></i>No date parameter provided.</div>");
   }
+  
+  file.close();
+
+  if (!hasRecords) {
+    html += "<tr><td colspan='5' class='text-center'>No attendance records found</td></tr>";
+  }
+
+  html += "</tbody></table>";
+  server.send(200, "text/html", html);
 }
 
 // Settings management
@@ -2244,7 +2280,7 @@ void handleScanningPage() {
                 border-radius: 10px;
                 overflow: hidden;
                 box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                color: #333; /* Add explicit text color */
+                color: #333;
             }
 
             .table thead th {
@@ -2262,7 +2298,7 @@ void handleScanningPage() {
                 padding: 12px 15px;
                 vertical-align: middle;
                 border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-                color: #333; /* Add explicit text color */
+                color: #333;
             }
 
             .table tbody tr:hover {
@@ -2343,12 +2379,12 @@ void handleScanningPage() {
             <div class="glass-card">
                 <h2 class="text-center mb-4">Today's Attendance Records</h2>
                 <div class="table-responsive">
-                    <table class="table">
+                    <table class="table glass-table">
                         <thead>
                             <tr>
                                 <th>Roll Number</th>
                                 <th>Name</th>
-                                <th>Fingerprint ID</th>
+                                <th>ID</th>
                                 <th>In Time</th>
                                 <th>Out Time</th>
                             </tr>
@@ -2363,16 +2399,26 @@ void handleScanningPage() {
   if (SD.exists(filePath)) {
     File file = SD.open(filePath, FILE_READ);
     if (file) {
+      // Skip header line
+      if (file.available()) {
+        file.readStringUntil('\n');
+      }
+
       while (file.available()) {
-        String line = file.readStringUntil('\n');
-        line.trim();
-        if (line.startsWith("<tr>") && line.endsWith("</tr>")) {
-          html += line;
+        String roll, name, id, inTime, outTime;
+        if (readAttendanceCSVLine(file, roll, name, id, inTime, outTime)) {
+          html += "<tr>";
+          html += "<td>" + roll + "</td>";
+          html += "<td>" + name + "</td>";
+          html += "<td>" + id + "</td>";
+          html += "<td>" + inTime + "</td>";
+          html += "<td>" + outTime + "</td>";
+          html += "</tr>";
         }
       }
       file.close();
     } else {
-      html += "<tr><td colspan='5' class='text-center'>No records found for today.</td></tr>";
+      html += "<tr><td colspan='5' class='text-center'>Failed to open attendance file.</td></tr>";
     }
   } else {
     html += "<tr><td colspan='5' class='text-center'>No records found for today.</td></tr>";
@@ -2382,12 +2428,12 @@ void handleScanningPage() {
                         </tbody>
                     </table>
                 </div>
-                <div class="action-buttons">
-                    <button onclick="startContinuousScanning()" class="btn btn-glass btn-glass-warning">
+                <div class="action-buttons mt-4 text-center">
+                    <button onclick="startContinuousScanning()" class="btn btn-glass btn-glass-warning me-2">
                         <i class="fas fa-fingerprint"></i>
                         Start Scanning
                     </button>
-                    <button onclick="stopContinuousScanning()" class="btn btn-glass btn-glass-danger">
+                    <button onclick="stopContinuousScanning()" class="btn btn-glass btn-glass-danger me-2">
                         <i class="fas fa-stop"></i>
                         Stop Scanning
                     </button>
@@ -2396,7 +2442,7 @@ void handleScanningPage() {
                         Refresh
                     </button>
                 </div>
-                <p id="status" class="status-text">Ready to scan</p>
+                <p id="status" class="status-text text-center mt-3">Ready to scan</p>
             </div>
         </div>
 
@@ -3032,6 +3078,52 @@ void a2z() {
   )rawliteral" + getNavbarHtml() + R"rawliteral(
    <div class="container">
         <div class="glass-card">
+    <script>
+      let activeTable = null;
+      let currentMonth = new Date().getMonth();
+      let currentYear = new Date().getFullYear();
+      let attendanceDates = [
+)rawliteral";
+
+  // Collect attendance date strings in the JavaScript array
+  bool hasEntries = false;
+  File root = SD.open("/Attendance");
+  if (root) {
+    File monthDir = root.openNextFile();
+    while (monthDir) {
+      if (monthDir.isDirectory()) {
+        String monthPath = "/Attendance/" + String(monthDir.name());
+        File dateDir = SD.open(monthPath);
+        if (dateDir) {
+          File file = dateDir.openNextFile();
+          while (file) {
+            String fileName = file.name();
+            if (fileName.endsWith(".csv") && fileName.length() == 14) {  // Changed from .txt to .csv
+              String date = fileName.substring(0, fileName.length() - 4);
+              html += "        \"" + date + "\",\n";
+              hasEntries = true;
+            }
+            file = dateDir.openNextFile();
+          }
+          dateDir.close();
+        }
+      }
+      monthDir = root.openNextFile();
+    }
+    root.close();
+  }
+  
+  // Remove trailing comma if entries exist
+  if (hasEntries) {
+    // Trim the trailing comma and newline
+    html = html.substring(0, html.length() - 2);
+    html += "\n";
+  }
+
+  html += R"rawliteral(
+      ];
+
+</script>
             <div class="glass-card-header">
                 <h2 class="text-center mb-0">Attendance Records</h2>
             </div>
@@ -3067,9 +3159,26 @@ void a2z() {
                                 onclick="deleteSelectedDates()" style="display: none;">
                                 <i class="fas fa-trash"></i> Delete Selected
                             </button>
-                            <button class="btn btn-glass btn-glass-danger" onclick="deleteAllAttendance()">
-                                <i class="fas fa-trash-alt"></i> Delete All
-                            </button>
+                            <div class="dropdown">
+                                <button class="btn btn-glass btn-glass-danger dropdown-toggle" type="button" id="deleteDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-trash-alt"></i> Delete
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="deleteDropdown">
+                                    <li><a class="dropdown-item" href="#" onclick="deleteSelectedDates()"><i class="fas fa-calendar-check"></i> Delete Selected Dates</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="deleteCurrentMonth()"><i class="fas fa-calendar-alt"></i> Delete Current Month</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="deleteAllAttendance()"><i class="fas fa-calendar"></i> Delete All Records</a></li>
+                                </ul>
+                            </div>
+                            <div class="dropdown">
+                                <button class="btn btn-glass btn-glass-primary dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-download"></i> Export
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+                                    <li><a class="dropdown-item" href="#" onclick="exportSelectedDates()"><i class="fas fa-calendar-check"></i> Export Selected Dates</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="exportCurrentMonth()"><i class="fas fa-calendar-alt"></i> Export Current Month</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="exportAllAttendance()"><i class="fas fa-calendar"></i> Export All Records</a></li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                     <div id="calendarGrid" class="calendar-grid">
@@ -3083,53 +3192,9 @@ void a2z() {
 
     <div class="overlay" id="overlay"></div>
 
-    <script>
-      let activeTable = null;
-      let currentMonth = new Date().getMonth();
-      let currentYear = new Date().getFullYear();
-      let attendanceDates = [
-)rawliteral";
-
-  // Collect attendance date strings in the JavaScript array
-  bool hasEntries = false;
-  File root = SD.open("/Attendance");
-  if (root) {
-    File monthDir = root.openNextFile();
-    while (monthDir) {
-      if (monthDir.isDirectory()) {
-        String monthPath = "/Attendance/" + String(monthDir.name());
-        File dateDir = SD.open(monthPath);
-        if (dateDir) {
-          File file = dateDir.openNextFile();
-          while (file) {
-            String fileName = file.name();
-            if (fileName.endsWith(".txt") && fileName.length() == 14) {
-              String date = fileName.substring(0, fileName.length() - 4);
-              html += "        \"" + date + "\",\n";
-              hasEntries = true;
-            }
-            file = dateDir.openNextFile();
-          }
-          dateDir.close();
-        }
-      }
-      monthDir = root.openNextFile();
-    }
-    root.close();
-  }
-  
-  // Remove trailing comma if entries exist
-  if (hasEntries) {
-    // Trim the trailing comma and newline
-    html = html.substring(0, html.length() - 2);
-    html += "\n";
-  }
-
-  html += R"rawliteral(
-      ];
+  <script>
     let selectedDates = new Set();
     let isSelectionMode = false;
-
     function toggleSelectionMode() {
         isSelectionMode = !isSelectionMode;
         const selectButton = document.getElementById('selectButton');
@@ -3504,6 +3569,110 @@ void a2z() {
         renderCalendar();
         updateYearDisplay();
     };
+
+    function exportSelectedDates() {
+        if (selectedDates.size === 0) {
+            alert('Please select at least one date to export.');
+            return;
+        }
+
+        const dates = Array.from(selectedDates);
+        const queryString = dates.map(date => `dates[]=${encodeURIComponent(date)}`).join('&');
+        
+        fetch(`/exportAttendance?${queryString}`)
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'selected_attendance.csv';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            })
+            .catch(error => {
+                console.error('Error downloading file:', error);
+                alert('Error downloading file. Please try again.');
+            });
+    }
+
+    function exportCurrentMonth() {
+        const month = (currentMonth + 1).toString().padStart(2, '0');
+        const year = currentYear.toString();
+        
+        fetch(`/exportAttendance?month=${month}&year=${year}`)
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `attendance_${month}_${year}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            })
+            .catch(error => {
+                console.error('Error downloading file:', error);
+                alert('Error downloading file. Please try again.');
+            });
+    }
+
+    function exportAllAttendance() {
+        if (confirm('Are you sure you want to export all attendance records? This might take a while.')) {
+            fetch('/exportAttendance?all=true')
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'all_attendance.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                })
+                .catch(error => {
+                    console.error('Error downloading file:', error);
+                    alert('Error downloading file. Please try again.');
+                });
+        }
+    }
+
+    function deleteCurrentMonth() {
+        const month = (currentMonth + 1).toString().padStart(2, '0');
+        const year = currentYear.toString();
+        if (confirm(`Are you sure you want to delete all attendance records for ${month}/${year}?`)) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.style.display = 'block';
+            statusDiv.className = 'status warning';
+            statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Deleting records...';
+
+            fetch('/deleteSelectedDates', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    month: month,
+                    year: year
+                })
+            })
+            .then(response => response.text())
+            .then(data => {
+                statusDiv.className = 'status success';
+                statusDiv.innerHTML = '<i class="fas fa-check-circle me-2"></i>' + data;
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            })
+            .catch(error => {
+                statusDiv.className = 'status error';
+                statusDiv.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>Error: ' + error;
+            });
+        }
+    }
     </script>
 </body>
 
@@ -3511,5 +3680,248 @@ void a2z() {
   )rawliteral";
 
   server.send(200, "text/html", html);
+}
+
+void handleExportAttendance() {
+    if (!checkAuth()) {
+        server.send(401, "text/plain", "Unauthorized");
+        return;
+    }
+
+    // Check if it's an export all request
+    if (server.hasArg("all") && server.arg("all") == "true") {
+        // Create a temporary file to store all records
+        File tempFile = SD.open("/temp_export.csv", FILE_WRITE);
+        if (!tempFile) {
+            server.send(500, "text/plain", "Failed to create export file");
+            return;
+        }
+
+        // Write header
+        tempFile.println("Date,Roll Number,Name,ID,In Time,Out Time");
+
+        // Iterate through all attendance files
+        File root = SD.open("/Attendance");
+        if (root) {
+            File monthDir = root.openNextFile();
+            while (monthDir) {
+                if (monthDir.isDirectory()) {
+                    String monthPath = "/Attendance/" + String(monthDir.name());
+                    File dateDir = SD.open(monthPath);
+                    if (dateDir) {
+                        File file = dateDir.openNextFile();
+                        while (file) {
+                            String fileName = file.name();
+                            if (fileName.endsWith(".csv")) {
+                                String date = fileName.substring(0, fileName.length() - 4);
+                                String filePath = monthPath + "/" + fileName;
+                                
+                                File attendanceFile = SD.open(filePath, FILE_READ);
+                                if (attendanceFile) {
+                                    // Skip header
+                                    if (attendanceFile.available()) {
+                                        attendanceFile.readStringUntil('\n');
+                                    }
+
+                                    // Read and write each record
+                                    while (attendanceFile.available()) {
+                                        String line = attendanceFile.readStringUntil('\n');
+                                        if (line.length() > 0) {
+                                            tempFile.println(date + "," + line);
+                                        }
+                                    }
+                                    attendanceFile.close();
+                                }
+                            }
+                            file = dateDir.openNextFile();
+                        }
+                        dateDir.close();
+                    }
+                }
+                monthDir = root.openNextFile();
+            }
+            root.close();
+        }
+
+        tempFile.close();
+
+        // Send the file
+        File downloadFile = SD.open("/temp_export.csv", FILE_READ);
+        if (downloadFile) {
+            server.sendHeader("Content-Type", "application/octet-stream");
+            server.sendHeader("Content-Disposition", "attachment; filename=all_attendance.csv");
+            server.sendHeader("Content-Length", String(downloadFile.size()));
+            server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+            server.sendHeader("Pragma", "no-cache");
+            server.sendHeader("Expires", "0");
+            
+            while (downloadFile.available()) {
+                server.sendContent(downloadFile.readString());
+            }
+            downloadFile.close();
+            
+            // Clean up
+            SD.remove("/temp_export.csv");
+        } else {
+            server.send(500, "text/plain", "Failed to read export file");
+        }
+        return;
+    }
+
+    // Check if it's a month export request
+    if (server.hasArg("month") && server.hasArg("year")) {
+        String month = server.arg("month");
+        String year = server.arg("year");
+        if (month.length() == 2 && year.length() == 4) {
+            // Create a temporary file to store the records
+            File tempFile = SD.open("/temp_export.csv", FILE_WRITE);
+            if (!tempFile) {
+                server.send(500, "text/plain", "Failed to create export file");
+                return;
+            }
+
+            // Write header
+            tempFile.println("Date,Roll Number,Name,ID,In Time,Out Time");
+
+            // Get the month directory
+            String monthPath = "/Attendance/" + month;
+            if (SD.exists(monthPath)) {
+                File dateDir = SD.open(monthPath);
+                if (dateDir) {
+                    File file = dateDir.openNextFile();
+                    while (file) {
+                        String fileName = file.name();
+                        if (fileName.endsWith(".csv")) {
+                            String date = fileName.substring(0, fileName.length() - 4);
+                            String filePath = monthPath + "/" + fileName;
+                            
+                            File attendanceFile = SD.open(filePath, FILE_READ);
+                            if (attendanceFile) {
+                                // Skip header
+                                if (attendanceFile.available()) {
+                                    attendanceFile.readStringUntil('\n');
+                                }
+
+                                // Read and write each record
+                                while (attendanceFile.available()) {
+                                    String line = attendanceFile.readStringUntil('\n');
+                                    if (line.length() > 0) {
+                                        tempFile.println(date + "," + line);
+                                    }
+                                }
+                                attendanceFile.close();
+                            }
+                        }
+                        file = dateDir.openNextFile();
+                    }
+                    dateDir.close();
+                }
+            }
+
+            tempFile.close();
+
+            // Send the file
+            File downloadFile = SD.open("/temp_export.csv", FILE_READ);
+            if (downloadFile) {
+                server.sendHeader("Content-Type", "text/csv");
+                server.sendHeader("Content-Disposition", "attachment; filename=attendance_" + month + "_" + year + ".csv");
+                server.sendHeader("Content-Length", String(downloadFile.size()));
+                server.sendHeader("Cache-Control", "no-cache");
+                server.sendHeader("Pragma", "no-cache");
+                
+                while (downloadFile.available()) {
+                    server.sendContent(downloadFile.readString());
+                }
+                downloadFile.close();
+                
+                // Clean up
+                SD.remove("/temp_export.csv");
+            } else {
+                server.send(500, "text/plain", "Failed to read export file");
+            }
+            return;
+        }
+    }
+
+    // Check if it's a selected dates export request
+    if (server.hasArg("dates[]")) {
+        std::vector<String> dates;
+        for (int i = 0; i < server.args(); i++) {
+            if (server.argName(i) == "dates[]") {
+                String date = server.arg(i);
+                if (date.length() == 10) { // DD-MM-YYYY format
+                    dates.push_back(date);
+                }
+            }
+        }
+        if (!dates.empty()) {
+            // Create a temporary file to store the records
+            File tempFile = SD.open("/temp_export.csv", FILE_WRITE);
+            if (!tempFile) {
+                server.send(500, "text/plain", "Failed to create export file");
+                return;
+            }
+
+            // Write header
+            tempFile.println("Date,Roll Number,Name,ID,In Time,Out Time");
+
+            // Process each selected date
+            for (const String& date : dates) {
+                String month = date.substring(3, 5);  // Extract month from DD-MM-YYYY
+                String filePath = "/Attendance/" + month + "/" + date + ".csv";
+                
+                if (SD.exists(filePath)) {
+                    File attendanceFile = SD.open(filePath, FILE_READ);
+                    if (attendanceFile) {
+                        // Skip header
+                        if (attendanceFile.available()) {
+                            attendanceFile.readStringUntil('\n');
+                        }
+
+                        // Read and write each record
+                        while (attendanceFile.available()) {
+                            String line = attendanceFile.readStringUntil('\n');
+                            if (line.length() > 0) {
+                                tempFile.println(date + "," + line);
+                            }
+                        }
+                        attendanceFile.close();
+                    }
+                }
+            }
+
+            tempFile.close();
+
+            // Send the file
+            File downloadFile = SD.open("/temp_export.csv", FILE_READ);
+            if (downloadFile) {
+                server.sendHeader("Content-Type", "text/csv");
+                server.sendHeader("Content-Disposition", "attachment; filename=selected_attendance.csv");
+                server.sendHeader("Content-Length", String(downloadFile.size()));
+                server.sendHeader("Cache-Control", "no-cache");
+                server.sendHeader("Pragma", "no-cache");
+                
+                while (downloadFile.available()) {
+                    server.sendContent(downloadFile.readString());
+                }
+                downloadFile.close();
+                
+                // Clean up
+                SD.remove("/temp_export.csv");
+            } else {
+                server.send(500, "text/plain", "Failed to read export file");
+            }
+            return;
+        }
+    }
+
+    // If we get here, the request was invalid
+    server.send(400, "text/plain", "Invalid export request. Please check your parameters.");
+}
+
+void setupRoutes() {
+    // ... existing code ...
+    server.on("/exportAttendance", HTTP_GET, handleExportAttendance);
+    // ... existing code ...
 }
 

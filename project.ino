@@ -145,12 +145,13 @@ void setup() {
     tft.setCursor(2, 20);
     tft.println("Fingerprint Error!");
     tft.setCursor(2, 30);
-    tft.println("Check connections");
+    tft.println("Check sensor or");
     tft.setCursor(2, 40);
-    tft.println("Press reset to retry");
+    tft.println("press reset to retry");
     return;
   } else {
     fingerprintReady = true;
+    systemReady = true;
   }
 
   // Initialize temperature sensor
@@ -187,8 +188,6 @@ void setup() {
     String ipMessage = "System Started!\nIP Address: " + WiFi.localIP().toString();
     sendTelegramMessage(ipMessage.c_str());
   }
-
-  systemReady = true;
 }
 
 void loop() {

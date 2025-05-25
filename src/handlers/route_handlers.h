@@ -39,4 +39,10 @@ void handleReinitializeSD();
 void handleReinitializeFingerprint();
 void handleSyncData();
 
+// Export functions
+void handleExportAttendance();
+void exportAllAttendanceRecords();
+void exportMonthAttendanceRecords(String month, String year);
+void exportSelectedDatesAttendanceRecords(const std::vector<String>& dates);
+
 #endif // ROUTE_HANDLERS_H 

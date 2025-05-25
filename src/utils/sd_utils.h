@@ -19,4 +19,9 @@ String unescapeCSV(String input);
 bool writeCSVLine(File &file, String id, String roll, String name);
 bool readCSVLine(File &file, String &id, String &roll, String &name);
 
+// Attendance CSV functions
+bool writeAttendanceCSVLine(File &file, String roll, String name, String id, String inTime, String outTime);
+bool readAttendanceCSVLine(File &file, String &roll, String &name, String &id, String &inTime, String &outTime);
+bool createAttendanceCSVFile(String filePath);
+
 #endif // SD_UTILS_H 
