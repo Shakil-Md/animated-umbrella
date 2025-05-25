@@ -193,7 +193,7 @@ void continuousFingerprintScan() {
         String foundName = "";
 
         // First, get the name and roll number
-        File nameFile = SD.open("/name.txt", FILE_READ);
+        File nameFile = SD.open("/students.csv", FILE_READ);
         if (nameFile) {
           while (nameFile.available()) {
             String line = nameFile.readStringUntil('\n');

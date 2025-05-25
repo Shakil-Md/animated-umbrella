@@ -45,54 +45,61 @@ bool setsd() {
     name[i][1] = "";
     name[i][2] = "";
   }
-  String line = "";
 
-  File file = SD.open("/name.txt", FILE_READ);
+  // Check if students.csv exists, if not create it with header
+  if (!SD.exists("/students.csv")) {
+    Serial.println("Creating new students.csv file with header");
+    File file = SD.open("/students.csv", FILE_WRITE);
+    if (file) {
+      file.println("ID,Roll Number,Name");
+      file.close();
+      Serial.println("Created students.csv with header");
+    } else {
+      Serial.println("Failed to create students.csv");
+      return false;
+    }
+  }
+
+  File file = SD.open("/students.csv", FILE_READ);
   if (file) {
-    Serial.println("Opened /name.txt successfully.");
+    Serial.println("Opened /students.csv successfully.");
     int maxID = 0;
+    
+    // Skip header line if it exists
+    if (file.available()) {
+      String header = file.readStringUntil('\n');
+      if (!header.startsWith("ID,Roll Number,Name")) {
+        // If first line is not a header, rewind file
+        file.seek(0);
+      }
+    }
+    
     while (file.available()) {
-      line = file.readStringUntil('\n');
-      Serial.println("Read line: " + line);
+      String id, roll, nameStr;
+      if (readCSVLine(file, id, roll, nameStr) && namid < 128) {
+        name[namid][1] = id;         // ID
+        name[namid][2] = roll;       // Roll Number
+        name[namid][0] = nameStr;    // Name
 
-      // Parse ID, roll number, and name from the line
-      // Format: "ID RollNumber Name"
-      int firstSpace = line.indexOf(' ');
-      if (firstSpace > 0 && namid < 128) {
-        // Get remaining string after ID
-        String remaining = line.substring(firstSpace + 1);
-        // Find space between roll number and name
-        int secondSpace = remaining.indexOf(' ');
+        Serial.println("Stored - ID: " + name[namid][1] + ", Roll: " + name[namid][2] + ", Name: " + name[namid][0]);
 
-        if (secondSpace > 0) {
-          name[namid][1] = line.substring(0, firstSpace);         // ID
-          name[namid][2] = remaining.substring(0, secondSpace);   // Roll Number
-          name[namid][0] = remaining.substring(secondSpace + 1);  // Name
-
-          Serial.println("Stored - ID: " + name[namid][1] + ", Roll: " + name[namid][2] + ", Name: " + name[namid][0]);
-
-          // Update maxID
-          int currentID = name[namid][1].toInt();
-          if (currentID > maxID) {
-            maxID = currentID;
-          }
-
-          namid++;
-        } else {
-          Serial.println("Error: Invalid line format (missing second space)");
+        // Update maxID
+        int currentID = name[namid][1].toInt();
+        if (currentID > maxID) {
+          maxID = currentID;
         }
-      } else {
-        Serial.println("Error: Invalid line format or name array out of bounds");
+
+        namid++;
       }
     }
     addid = maxID + 1;
     file.close();
   } else {
-    Serial.println("Failed to open /name.txt for reading.");
+    Serial.println("Failed to open /students.csv for reading.");
     addid = 1;
   }
 
-  Serial.println("Finished reading /name.txt. Total names: " + String(namid));
+  Serial.println("Finished reading /students.csv. Total names: " + String(namid));
   Serial.println("Next available ID: " + String(addid));
   rgbLED.setPixelColor(0, rgbLED.Color(0, 55, 0));  // Set RGB LED to green (success)
   rgbLED.show();
@@ -113,35 +120,35 @@ void loadStudentData() {
   }
 
   // Read student data from SD card
-  File file = SD.open("/name.txt", FILE_READ);
+  File file = SD.open("/students.csv", FILE_READ);
   if (file) {
     Serial.println("Loading student data from SD card...");
     int maxID = 0;
 
+    // Skip header line if it exists
+    if (file.available()) {
+      String header = file.readStringUntil('\n');
+      if (!header.startsWith("ID,Roll Number,Name")) {
+        // If first line is not a header, rewind file
+        file.seek(0);
+      }
+    }
+
     while (file.available()) {
-      String line = file.readStringUntil('\n');
-      line.trim();
+      String id, roll, nameStr;
+      if (readCSVLine(file, id, roll, nameStr) && namid < 128) {
+        name[namid][1] = id;         // ID
+        name[namid][2] = roll;       // Roll Number
+        name[namid][0] = nameStr;    // Name
 
-      // Parse ID, roll number, and name from the line
-      int firstSpace = line.indexOf(' ');
-      if (firstSpace > 0 && namid < 128) {
-        String remaining = line.substring(firstSpace + 1);
-        int secondSpace = remaining.indexOf(' ');
-
-        if (secondSpace > 0) {
-          name[namid][1] = line.substring(0, firstSpace);         // ID
-          name[namid][2] = remaining.substring(0, secondSpace);   // Roll Number
-          name[namid][0] = remaining.substring(secondSpace + 1);  // Name
-
-          // Update maxID
-          int currentID = name[namid][1].toInt();
-          if (currentID > maxID) {
-            maxID = currentID;
-          }
-
-          namid++;
-          Serial.println("Loaded student - ID: " + name[namid - 1][1] + ", Roll: " + name[namid - 1][2] + ", Name: " + name[namid - 1][0]);
+        // Update maxID
+        int currentID = name[namid][1].toInt();
+        if (currentID > maxID) {
+          maxID = currentID;
         }
+
+        namid++;
+        Serial.println("Loaded student - ID: " + name[namid - 1][1] + ", Roll: " + name[namid - 1][2] + ", Name: " + name[namid - 1][0]);
       }
     }
 
@@ -150,7 +157,7 @@ void loadStudentData() {
     Serial.println("Finished loading student data. Total students: " + String(namid));
     Serial.println("Next available ID: " + String(addid));
   } else {
-    Serial.println("Failed to open name.txt for reading");
+    Serial.println("Failed to open students.csv for reading");
     addid = 1;
   }
 }
@@ -187,14 +194,42 @@ bool ensureAttendanceDirectory(String dateStr) {
 
 bool checkSDCardStatus() {
   if (!sdCardInitialized) {
+    Serial.println("SD card not initialized");
     return false;
   }
 
-  File testFile = SD.open("/name.txt", FILE_READ);
+  // Try to create a test file to verify write access
+  File testFile = SD.open("/test.txt", FILE_WRITE);
   if (!testFile) {
+    Serial.println("Failed to create test file - SD card may be read-only or full");
+    return false;
+  }
+  testFile.println("test");
+  testFile.close();
+
+  // Try to read the test file
+  testFile = SD.open("/test.txt", FILE_READ);
+  if (!testFile) {
+    Serial.println("Failed to read test file - SD card may be corrupted");
     return false;
   }
   testFile.close();
+
+  // Clean up test file
+  SD.remove("/test.txt");
+
+  // Check if students.csv exists
+  if (!SD.exists("/students.csv")) {
+    Serial.println("students.csv not found - creating new file");
+    File file = SD.open("/students.csv", FILE_WRITE);
+    if (!file) {
+      Serial.println("Failed to create students.csv");
+      return false;
+    }
+    file.println("ID,Roll Number,Name");
+    file.close();
+  }
+
   return true;
 }
 
@@ -256,4 +291,56 @@ void readTelegramCredentials() {
     }
     telegramFile.close();
   }
+}
+
+String escapeCSV(String input) {
+  // If the string contains commas, quotes, or newlines, wrap it in quotes
+  if (input.indexOf(',') != -1 || input.indexOf('"') != -1 || input.indexOf('\n') != -1) {
+    // Double up any quotes
+    input.replace("\"", "\"\"");
+    // Wrap in quotes
+    input = "\"" + input + "\"";
+  }
+  return input;
+}
+
+String unescapeCSV(String input) {
+  // Remove surrounding quotes if present
+  if (input.startsWith("\"") && input.endsWith("\"")) {
+    input = input.substring(1, input.length() - 1);
+    // Un-double any quotes
+    input.replace("\"\"", "\"");
+  }
+  return input;
+}
+
+bool writeCSVLine(File &file, String id, String roll, String name) {
+  String line = escapeCSV(id) + "," + escapeCSV(roll) + "," + escapeCSV(name) + "\n";
+  return file.print(line);
+}
+
+bool readCSVLine(File &file, String &id, String &roll, String &name) {
+  if (!file.available()) return false;
+  
+  String line = file.readStringUntil('\n');
+  line.trim();
+  
+  // Parse CSV line
+  int pos1 = 0;
+  int pos2 = 0;
+  
+  // Find first comma
+  pos1 = line.indexOf(',');
+  if (pos1 == -1) return false;
+  
+  // Find second comma
+  pos2 = line.indexOf(',', pos1 + 1);
+  if (pos2 == -1) return false;
+  
+  // Extract fields
+  id = unescapeCSV(line.substring(0, pos1));
+  roll = unescapeCSV(line.substring(pos1 + 1, pos2));
+  name = unescapeCSV(line.substring(pos2 + 1));
+  
+  return true;
 } 

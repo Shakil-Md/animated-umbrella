@@ -605,20 +605,18 @@ void handleShowname() {
                 <tbody>
   )rawliteral";
 
-  // Read and display names from SD card
-  File file = SD.open("/name.txt", FILE_READ);
+  // Read and display names from students.csv
+  File file = SD.open("/students.csv", FILE_READ);
   if (file) {
+    // Skip header line
+    if (file.available()) {
+      String header = file.readStringUntil('\n');
+    }
+    
     while (file.available()) {
-      String line = file.readStringUntil('\n');
-      if (line.length() > 0) {
-        int firstSpace = line.indexOf(' ');
-        int secondSpace = line.indexOf(' ', firstSpace + 1);
-        if (firstSpace != -1 && secondSpace != -1) {
-          String id = line.substring(0, firstSpace);
-          String roll = line.substring(firstSpace + 1, secondSpace);
-          String name = line.substring(secondSpace + 1);
-          html += "<tr><td class='checkbox-cell'><input type='checkbox' class='student-checkbox' value='" + id + "' onchange='updateDeleteButton()'></td><td>" + id + "</td><td>" + roll + "</td><td>" + name + "</td><td><button class='btn btn-danger' onclick='deleteRecord(" + id + ")'><i class='fas fa-trash-alt'></i></button></td></tr>";
-        }
+      String id, roll, nameStr;
+      if (readCSVLine(file, id, roll, nameStr)) {
+        html += "<tr><td class='checkbox-cell'><input type='checkbox' class='student-checkbox' value='" + id + "' onchange='updateDeleteButton()'></td><td>" + id + "</td><td>" + roll + "</td><td>" + nameStr + "</td><td><button class='btn btn-danger' onclick='deleteRecord(" + id + ")'><i class='fas fa-trash-alt'></i></button></td></tr>";
       }
     }
     file.close();
@@ -815,16 +813,21 @@ void handleDltname() {
       }
 
       // 2. Delete from SD card
-      File file = SD.open("/name.txt", FILE_READ);
+      File file = SD.open("/students.csv", FILE_READ);
       if (file) {
         String content = "";
+        // Skip header line
+        if (file.available()) {
+          String header = file.readStringUntil('\n');
+          content = header + "\n";  // Keep the header
+        }
+        
         while (file.available()) {
           String line = file.readStringUntil('\n');
           if (line.length() > 0) {
-            int firstSpace = line.indexOf(' ');
-            if (firstSpace != -1) {
-              String lineId = line.substring(0, firstSpace);
-              if (lineId.toInt() != index) {
+            String id, roll, name;
+            if (readCSVLine(file, id, roll, name)) {
+              if (id.toInt() != index) {
                 content += line + "\n";
               }
             }
@@ -833,11 +836,11 @@ void handleDltname() {
         file.close();
 
         // Write back the filtered content
-        file = SD.open("/name.txt", FILE_WRITE);
+        file = SD.open("/students.csv", FILE_WRITE);
         if (file) {
           file.print(content);
           file.close();
-          Serial.println("Name deleted from SD card");
+          Serial.println("Student deleted from CSV file");
         }
       }
 
@@ -886,13 +889,13 @@ void handleDeleteAllStudents() {
       Serial.println("Fingerprint database cleared successfully");
     }
 
-    // 2. Delete the name file from the SD card
-    if (SD.exists("/name.txt")) {
-      if (!SD.remove("/name.txt")) {
+    // 2. Delete the students file from the SD card
+    if (SD.exists("/students.csv")) {
+      if (!SD.remove("/students.csv")) {
         success = false;
-        errorMessage += "Failed to delete name.txt from SD card. ";
+        errorMessage += "Failed to delete students.csv from SD card. ";
       } else {
-        Serial.println("name.txt deleted from SD card");
+        Serial.println("students.csv deleted from SD card");
       }
     }
 
@@ -906,7 +909,7 @@ void handleDeleteAllStudents() {
     addid = 1;
 
     // 4. Delete all student records from Firebase
-    if (firebaseConfig.host != "" && firebaseConfig.signer.tokens.legacy_token != "") {
+    if (firebaseConfig.host.length() > 0 && strlen(firebaseConfig.signer.tokens.legacy_token) > 0) {
       String studentsPath = "/students";
       if (Firebase.deleteNode(firebaseData, studentsPath.c_str())) {
         Serial.println("Student records deleted from Firebase");
@@ -934,11 +937,20 @@ void handleAddnew() {
     String fingerprintStatus = server.arg("fingerprintStatus");
 
     if (studentName.length() > 0 && roll.length() > 0 && fingerprintStatus == "scanned") {
-      // Save to SD card in format "ID RollNumber Name"
-      File file = SD.open("/name.txt", FILE_APPEND);
+      // Save to SD card in CSV format
+      File file = SD.open("/students.csv", FILE_READ);
+      bool fileExists = file;
+      file.close();
+
+      file = SD.open("/students.csv", fileExists ? FILE_APPEND : FILE_WRITE);
       if (file) {
-        String line = String(addid) + " " + roll + " " + studentName;
-        file.println(line);
+        // Write header if new file
+        if (!fileExists) {
+          file.println("ID,Roll Number,Name");
+        }
+        
+        // Write new student record
+        writeCSVLine(file, String(addid), roll, studentName);
         file.close();
 
         // Update local name array
@@ -1216,11 +1228,19 @@ void handleFormSubmit() {
     tft.println("Roll Number: " + rollNumber);
 
     // Save the name, roll number, and ID to the SD card
-    File file = SD.open("/name.txt", FILE_APPEND);
+    File file = SD.open("/students.csv", FILE_READ);
+    bool fileExists = file;
+    file.close();
+
+    file = SD.open("/students.csv", fileExists ? FILE_APPEND : FILE_WRITE);
     if (file) {
-      file.print(String(addid) + " ");  // Use the current `addid` as the ID
-      file.print(rollNumber + " ");     // Save the roll number
-      file.println(userName);           // Save the name
+      // Write header if new file
+      if (!fileExists) {
+        file.println("ID,Roll Number,Name");
+      }
+      
+      // Write new student record
+      writeCSVLine(file, String(addid), rollNumber, userName);
       file.close();
 
       // Upload to Firebase immediately
@@ -1306,38 +1326,43 @@ void handleAllfile() {
 }
 
 void handleDeleteAll() {
-  tft.fillScreen(TFT_WHITE);                // Clear the screen
-  tft.fillRect(0, 15, 128, 30, TFT_WHITE);  // Clear area below time and WiFi icon
-  tft.setCursor(2, 20);                     // Start below the time/WiFi area
-  tft.setTextColor(TFT_BLACK);              // Set text color to black
-  tft.setTextSize(1);                       // Set text size
-  tft.println("Deleting all records...");
+  if (server.hasArg("confirm") && server.arg("confirm") == "true") {
+    // Delete all fingerprint templates
+    for (int i = 1; i <= 200; i++) {
+      if (finger.deleteModel(i) == FINGERPRINT_OK) {
+        Serial.println("Deleted fingerprint template " + String(i));
+      }
+    }
 
-  // Delete the name file from the SD card
-  if (SD.exists("/name.txt")) {
-    SD.remove("/name.txt");
-  }
+    // Delete students.csv
+    if (SD.exists("/students.csv")) {
+      SD.remove("/students.csv");
+      Serial.println("Deleted students.csv");
+    }
 
-  // Clear the name array
-  for (int i = 0; i < 128; i++) {
-    name[i][0] = "";
-    name[i][1] = "";
-    name[i][2] = "";
-  }
-  namid = 0;
-  addid = 1;
+    // Reset counters
+    addid = 1;
+    namid = 0;
 
-  // Clear the fingerprint sensor's internal database
-  if (finger.emptyDatabase() == FINGERPRINT_OK) {
-    Serial.println("Fingerprint database cleared successfully.");
-    tft.println("Fingerprint database cleared successfully.");
+    // Clear name array
+    for (int i = 0; i < 200; i++) {
+      name[i][0] = "";
+      name[i][1] = "";
+      name[i][2] = "";
+    }
+
+    // Create new students.csv with header
+    File file = SD.open("/students.csv", FILE_WRITE);
+    if (file) {
+      file.println("ID,Roll Number,Name");
+      file.close();
+      Serial.println("Created new students.csv with header");
+    }
+
+    server.send(200, "text/plain", "All data deleted successfully");
   } else {
-    Serial.println("Failed to clear fingerprint database.");
-    tft.println("Failed to clear fingerprint database.");
+    server.send(400, "text/plain", "Confirmation required");
   }
-
-  tft.println("All records deleted.");
-  server.send(200, "text/plain", "All records and fingerprint database cleared successfully.");
 }
 
 void handleDeleteSelectedDates() {
@@ -2133,30 +2158,35 @@ void handleReinitializeDisplay() {
 }
 
 void handleReinitializeSD() {
-  if (sdCardInitialized) {
-    SD.end();
-    delay(100);
-  }
+  tft.fillScreen(TFT_WHITE);                // Clear the screen
+  tft.fillRect(0, 15, 128, 30, TFT_WHITE);  // Clear area below time and WiFi icon
+  tft.setCursor(2, 20);                     // Start below the time/WiFi area
+  tft.setTextColor(TFT_BLACK);              // Set text color to black
+  tft.setTextSize(1);                       // Set text size
+  tft.println("Reinitializing SD card...");
 
-  sdCardInitialized = false;
+  // Unmount SD card
+  SD.end();
+  delay(1000);  // Wait for SD card to be fully unmounted
 
-  if (!setsd()) {
-    server.send(500, "text/plain", "Error: SD card not found or initialization failed. Please check if the SD card is properly inserted.");
+  // Try to remount SD card
+  if (!SD.begin(SD_CS_PIN)) {
+    tft.println("Failed to reinitialize SD card!");
+    server.send(500, "text/plain", "Failed to reinitialize SD card");
     return;
   }
 
-  // Try to verify card is working by reading a file
-  File testFile = SD.open("/name.txt", FILE_READ);
+  // Test if we can read the students.csv file
+  File testFile = SD.open("/students.csv", FILE_READ);
   if (!testFile) {
-    server.send(500, "text/plain", "Error: SD card initialized but cannot read files. Please check card format and contents.");
+    tft.println("Cannot read students.csv!");
+    server.send(500, "text/plain", "Cannot read students.csv");
     return;
   }
   testFile.close();
 
-  // Reload student data
-  loadStudentData();
-
-  server.send(200, "text/plain", "SD card reinitialized successfully. Found " + String(namid) + " student records.");
+  tft.println("SD card reinitialized successfully!");
+  server.send(200, "text/plain", "SD card reinitialized successfully");
 }
 
 void handleSyncData() {
@@ -2455,7 +2485,7 @@ void a2z() {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     )rawliteral" + getGlassmorphismStyles() + R"rawliteral(
-       <style>
+    <style>
     :root {
         --primary-color: #2c3e50;
         --secondary-color: #3498db;
@@ -2464,7 +2494,6 @@ void a2z() {
         --dark-color: #2d5884;
     }
 
-    /* Base styles */
     body {
         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         min-height: 100vh;
@@ -2475,15 +2504,15 @@ void a2z() {
         justify-content: center;
         width: 100vw;
         box-sizing: border-box;
+        /* Remove any padding-top here as it's handled in navbar.html */
     }
 
-    /* Container and card styles */
     .container {
         max-width: 1200px;
         min-width: 0;
         width: 100%;
         padding: 1.5rem;
-        margin: 20px auto 0 auto;
+        margin: 0 auto;
         position: relative;
         display: flex;
         flex-direction: column;
@@ -2505,14 +2534,6 @@ void a2z() {
 
     .calendar-header {
         width: 100%;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-        position: relative;
-        padding: 0;
-        flex-wrap: wrap;
-        gap: 10px;
     }
 
     .nav-buttons {
@@ -2538,10 +2559,6 @@ void a2z() {
     }
 
     .calendar-grid {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 8px;
-        padding: 0;
         justify-items: center;
         align-items: center;
         width: 100%;
@@ -2568,22 +2585,21 @@ void a2z() {
     }
 
     .card-body {
-        padding: 1rem 2rem;
-        /* Reduced from 2rem to 1rem top/bottom */
+        padding: 2rem;
     }
 
     .calendar {
         width: 100%;
         max-width: 1000px;
         min-width: fit-content;
-        margin: 0 auto 20px;
+        margin: 0 auto;
+        margin-bottom: 20px;
         padding: 0;
         box-sizing: border-box;
         position: relative;
     }
 
     .calendar-header {
-        width: 100%;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -2795,42 +2811,11 @@ void a2z() {
             /* Reduced from 320px */
         }
 
-        .calendar-header {
-            flex-direction: column;
-            gap: 5px;
-            margin-bottom: 5px !important;
-            min-height: auto !important;
-            padding: 0 !important;
-        }
-
-        .selection-controls {
-            flex-direction: row;
-            flex-wrap: wrap;
-            /* Add this to allow wrapping */
-            gap: 5px;
-            margin: 0 !important;
-            padding: 0 !important;
-            min-height: auto !important;
+        .calendar-grid {
             width: 100%;
-            /* Add this to ensure full width */
-            justify-content: center;
-            /* Center the buttons */
-        }
-
-        .btn-glass {
-            height: 35px !important;
-            min-height: 35px !important;
-            padding: 0 10px !important;
-            font-size: 0.9em !important;
-            flex: 0 1 auto;
-            /* Add this to allow buttons to shrink */
-            white-space: nowrap;
-            /* Add this to prevent text wrapping inside buttons */
-        }
-
-        /* Add minimum spacing between calendar header elements */
-        .calendar-header {
-            gap: 10px !important;
+            gap: 4px;
+            /* Reduced from 8px */
+            padding: 5px;
         }
 
         .calendar-day {
@@ -2877,11 +2862,6 @@ void a2z() {
 
         .calendar-header {
             padding: 0 5px;
-        }
-
-        .selection-controls {
-            gap: 3px;
-            /* Reduce gap further for smaller screens */
         }
     }
 
@@ -2957,588 +2937,15 @@ void a2z() {
         display: none;
     }
 
-    .month-picker {
-        cursor: pointer;
-        padding: 8px 16px;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-    }
-
-    .month-picker:hover {
-        background: rgba(255, 255, 255, 0.1);
-    }
-
-    .month-picker-menu {
-        display: none;
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        border-radius: 12px;
-        padding: 16px;
-        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
-        z-index: 1000;
-        width: 300px;
-        margin-top: 8px;
-    }
-
-    .month-picker-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 16px;
-        padding: 8px;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-    }
-
-    .month-picker-header span {
-        font-size: 1.2em;
-        font-weight: bold;
-        min-width: 80px;
-        text-align: center;
-    }
-
-    .month-picker-header button {
-        padding: 4px 12px;
-        border: none;
-        background: rgba(52, 152, 219, 0.1);
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .month-picker-header button:hover {
-        background: rgba(52, 152, 219, 0.2);
-    }
-
-    .month-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 8px;
-    }
-
-    .month-item {
-        padding: 8px;
-        text-align: center;
-        cursor: pointer;
-        border-radius: 6px;
-        transition: all 0.2s ease;
-    }
-
-    .month-item:hover {
-        background: rgba(52, 152, 219, 0.1);
-    }
-
-    .month-item.active {
-        background: rgba(52, 152, 219, 0.2);
-        font-weight: bold;
-    }
-
-    /* Media Queries */
     @media (min-width: 992px) {
-        .container {
-            max-width: 1400px;
-            margin: 25px auto 0 auto;
-        }
-
-        .calendar {
-            width: 100%;
-            max-width: 1200px;
-            padding-top: 0;
-            /* Remove top padding */
-        }
-
-        .calendar-day {
-            min-width: 80px;
-            height: 40px !important;
-            /* Fixed height */
-            min-height: 40px !important;
-            padding: 8px !important;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .calendar-day.has-data {
-            height: 40px !important;
-            min-height: 40px !important;
-        }
-
-        .calendar-header {
-            margin-bottom: 5px;
-            /* Reduced from 10px */
-        }
-    }
-
-    @media (max-width: 768px) {
-        .glass-card {
-            width: 95% !important;
-            padding: 10px;
-            margin: -40px auto 0 auto;
-        }
-
-        .calendar {
-            width: 95% !important;
-            margin: 0 auto;
-            padding: 0;
-            min-width: 280px;
-            /* Reduced from 320px */
-        }
-
-        .calendar-header {
-            flex-direction: column;
-            gap: 5px;
-            margin-bottom: 5px !important;
-            min-height: auto !important;
-            padding: 0 !important;
-        }
-
-        .selection-controls {
-            flex-direction: row;
-            flex-wrap: wrap;
-            /* Add this to allow wrapping */
-            gap: 5px;
-            margin: 0 !important;
-            padding: 0 !important;
-            min-height: auto !important;
-            width: 100%;
-            /* Add this to ensure full width */
-            justify-content: center;
-            /* Center the buttons */
-        }
-
-        .btn-glass {
-            height: 35px !important;
-            min-height: 35px !important;
-            padding: 0 10px !important;
-            font-size: 0.9em !important;
-            flex: 0 1 auto;
-            /* Add this to allow buttons to shrink */
-            white-space: nowrap;
-            /* Add this to prevent text wrapping inside buttons */
-        }
-
-        /* Add minimum spacing between calendar header elements */
-        .calendar-header {
-            gap: 10px !important;
-        }
-
-        .calendar-day {
-            min-width: 35px;
-            /* Reduced from 40px */
-            min-height: 45px !important;
-            padding: 4px !important;
-            font-size: 0.85em !important;
-        }
-
-        .calendar-day.header {
-            min-width: 35px;
-            min-height: 30px !important;
-            padding: 4px !important;
-            font-size: 0.8em !important;
+        .calendar-grid {
+            gap: 6px;
         }
 
         .attendance-count {
-            font-size: 0.75em !important;
+            font-size: 0.9em;
+            margin-top: 4px;
         }
-    }
-
-    @media (max-width: 480px) {
-        .glass-card {
-            width: 92% !important;
-            margin: -50px auto 0 auto;
-        }
-
-        .calendar {
-            width: 92% !important;
-            min-width: 260px;
-        }
-
-        .calendar-grid {
-            gap: 2px;
-        }
-
-        .calendar-day {
-            min-width: 32px;
-            min-height: 40px !important;
-            padding: 2px !important;
-            font-size: 0.8em !important;
-        }
-
-        .calendar-header {
-            padding: 0 5px;
-        }
-
-        .selection-controls {
-            gap: 3px;
-            /* Reduce gap further for smaller screens */
-        }
-    }
-
-    .attendance-table {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 90%;
-        max-width: 1000px;
-        max-height: 80vh;
-        background: rgba(255, 255, 255, 0.15);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border-radius: 15px;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
-        z-index: 1000;
-        display: none;
-        overflow: hidden;
-        color: white;
-    }
-
-    .table-container {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .table-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 15px 20px;
-        background: rgba(44, 62, 80, 0.5);
-        color: white;
-    }
-
-    .table-title {
-        margin: 0;
-        font-size: 1.2em;
-        font-weight: 600;
-    }
-
-    .close-table {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        color: white;
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-
-    .close-table:hover {
-        background: rgba(255, 255, 255, 0.2);
-        transform: scale(1.1);
-    }
-
-    .overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(5px);
-        z-index: 999;
-        display: none;
-    }
-
-    .month-picker {
-        cursor: pointer;
-        padding: 8px 16px;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-    }
-
-    .month-picker:hover {
-        background: rgba(255, 255, 255, 0.1);
-    }
-
-    .month-picker-menu {
-        display: none;
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        border-radius: 12px;
-        padding: 16px;
-        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
-        z-index: 1000;
-        width: 300px;
-        margin-top: 8px;
-    }
-
-    .month-picker-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 16px;
-        padding: 8px;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-    }
-
-    .month-picker-header span {
-        font-size: 1.2em;
-        font-weight: bold;
-        min-width: 80px;
-        text-align: center;
-    }
-
-    .month-picker-header button {
-        padding: 4px 12px;
-        border: none;
-        background: rgba(52, 152, 219, 0.1);
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .month-picker-header button:hover {
-        background: rgba(52, 152, 219, 0.2);
-    }
-
-    .month-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 8px;
-    }
-
-    .month-item {
-        padding: 8px;
-        text-align: center;
-        cursor: pointer;
-        border-radius: 6px;
-        transition: all 0.2s ease;
-    }
-
-    .month-item:hover {
-        background: rgba(52, 152, 219, 0.1);
-    }
-
-    .month-item.active {
-        background: rgba(52, 152, 219, 0.2);
-        font-weight: bold;
-    }
-
-    /* Media Queries */
-    @media (min-width: 992px) {
-        .container {
-            max-width: 1400px;
-            margin: 25px auto 0 auto;
-        }
-
-        .calendar {
-            width: 100%;
-            max-width: 1200px;
-            padding-top: 0;
-            /* Remove top padding */
-        }
-
-        .calendar-day {
-            min-width: 80px;
-            height: 40px !important;
-            /* Fixed height */
-            min-height: 40px !important;
-            padding: 8px !important;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .calendar-day.has-data {
-            height: 40px !important;
-            min-height: 40px !important;
-        }
-
-        .calendar-header {
-            margin-bottom: 5px;
-            /* Reduced from 10px */
-        }
-    }
-
-    @media (max-width: 768px) {
-        .glass-card {
-            width: 95% !important;
-            padding: 10px;
-            margin: -40px auto 0 auto;
-        }
-
-        .calendar {
-            width: 95% !important;
-            margin: 0 auto;
-            padding: 0;
-            min-width: 280px;
-            /* Reduced from 320px */
-        }
-
-        .calendar-header {
-            flex-direction: column;
-            gap: 5px;
-            margin-bottom: 5px !important;
-            min-height: auto !important;
-            padding: 0 !important;
-        }
-
-        .selection-controls {
-            flex-direction: row;
-            flex-wrap: wrap;
-            /* Add this to allow wrapping */
-            gap: 5px;
-            margin: 0 !important;
-            padding: 0 !important;
-            min-height: auto !important;
-            width: 100%;
-            /* Add this to ensure full width */
-            justify-content: center;
-            /* Center the buttons */
-        }
-
-        .btn-glass {
-            height: 35px !important;
-            min-height: 35px !important;
-            padding: 0 10px !important;
-            font-size: 0.9em !important;
-            flex: 0 1 auto;
-            /* Add this to allow buttons to shrink */
-            white-space: nowrap;
-            /* Add this to prevent text wrapping inside buttons */
-        }
-
-        /* Add minimum spacing between calendar header elements */
-        .calendar-header {
-            gap: 10px !important;
-        }
-
-        .calendar-day {
-            min-width: 35px;
-            /* Reduced from 40px */
-            min-height: 45px !important;
-            padding: 4px !important;
-            font-size: 0.85em !important;
-        }
-
-        .calendar-day.header {
-            min-width: 35px;
-            min-height: 30px !important;
-            padding: 4px !important;
-            font-size: 0.8em !important;
-        }
-
-        .attendance-count {
-            font-size: 0.75em !important;
-        }
-    }
-
-    @media (max-width: 480px) {
-        .glass-card {
-            width: 92% !important;
-            margin: -50px auto 0 auto;
-        }
-
-        .calendar {
-            width: 92% !important;
-            min-width: 260px;
-        }
-
-        .calendar-grid {
-            gap: 2px;
-        }
-
-        .calendar-day {
-            min-width: 32px;
-            min-height: 40px !important;
-            padding: 2px !important;
-            font-size: 0.8em !important;
-        }
-
-        .calendar-header {
-            padding: 0 5px;
-        }
-
-        .selection-controls {
-            gap: 3px;
-            /* Reduce gap further for smaller screens */
-        }
-    }
-
-    .attendance-table {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 90%;
-        max-width: 1000px;
-        max-height: 80vh;
-        background: rgba(255, 255, 255, 0.15);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border-radius: 15px;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
-        z-index: 1000;
-        display: none;
-        overflow: hidden;
-        color: white;
-    }
-
-    .table-container {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .table-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 15px 20px;
-        background: rgba(44, 62, 80, 0.5);
-        color: white;
-    }
-
-    .table-title {
-        margin: 0;
-        font-size: 1.2em;
-        font-weight: 600;
-    }
-
-    .close-table {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        color: white;
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-
-    .close-table:hover {
-        background: rgba(255, 255, 255, 0.2);
-        transform: scale(1.1);
-    }
-
-    .overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(5px);
-        z-index: 999;
-        display: none;
     }
 
     .month-picker {
@@ -4048,7 +3455,7 @@ void a2z() {
         renderMonthGrid(); // Re-render months for the new year
     }
 
-    // Function to render month grid
+    // Add this new function to render month grid
     function renderMonthGrid() {
         const monthGrid = document.querySelector('.month-grid');
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -4075,11 +3482,21 @@ void a2z() {
         });
     }
 
-    function updateYearDisplay() {
-      const yearDisplay = document.getElementById('yearDisplay');
-      if (yearDisplay) {
+    // Update the showMonthPicker function
+    function showMonthPicker() {
+        const menu = document.getElementById('monthPickerMenu');
+        const yearDisplay = document.getElementById('yearDisplay');
+
+        // Set current year
         yearDisplay.textContent = currentYear;
-      }
+
+        // Render month grid
+        renderMonthGrid();
+
+        menu.style.display = 'block';
+
+        // Close when clicking outside
+        document.addEventListener('click', closeMonthPickerOutside);
     }
 
     // Initialize the calendar when the page loads

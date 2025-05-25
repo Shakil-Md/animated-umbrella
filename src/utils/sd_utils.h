@@ -13,4 +13,10 @@ bool readFirebaseCredentials();
 bool readWiFiCredentials(String &ssid, String &password);
 void readTelegramCredentials();
 
+// CSV utility functions
+String escapeCSV(String input);
+String unescapeCSV(String input);
+bool writeCSVLine(File &file, String id, String roll, String name);
+bool readCSVLine(File &file, String &id, String &roll, String &name);
+
 #endif // SD_UTILS_H 

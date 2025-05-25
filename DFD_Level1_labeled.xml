@@ -1,0 +1,107 @@
+<mxfile>
+  <diagram name="DFD Level 1 Labeled" id="DFD1Labeled">
+    <mxGraphModel dx="1000" dy="1000" grid="1" gridSize="10">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <!-- External Entities as rectangles -->
+        <mxCell id="2" value="User" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="100" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="3" value="Admin" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="320" width="100" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="4" value="Fingerprint Sensor" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="140" width="120" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="5" value="Temperature Sensor" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="200" width="120" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="6" value="Firebase" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="900" y="80" width="100" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="7" value="Telegram" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="900" y="320" width="100" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="8" value="SD Card" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="900" y="140" width="100" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="9" value="WiFi" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="900" y="200" width="100" height="40" as="geometry"/>
+        </mxCell>
+        <!-- Processes as rounded rectangles -->
+        <mxCell id="10" value="User Authentication" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;" vertex="1" parent="1">
+          <mxGeometry x="250" y="80" width="180" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="11" value="Attendance Recording" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;" vertex="1" parent="1">
+          <mxGeometry x="250" y="140" width="180" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="12" value="System Configuration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="1">
+          <mxGeometry x="250" y="320" width="180" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="13" value="Web Dashboard" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;" vertex="1" parent="1">
+          <mxGeometry x="600" y="140" width="150" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="14" value="Notification Service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" vertex="1" parent="1">
+          <mxGeometry x="600" y="320" width="150" height="40" as="geometry"/>
+        </mxCell>
+        <!-- Data Stores as rectangles -->
+        <mxCell id="15" value="Attendance Records" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#000;" vertex="1" parent="1">
+          <mxGeometry x="600" y="200" width="150" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="16" value="User Database" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#000;" vertex="1" parent="1">
+          <mxGeometry x="600" y="80" width="150" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="17" value="System Config" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#000;" vertex="1" parent="1">
+          <mxGeometry x="600" y="260" width="150" height="40" as="geometry"/>
+        </mxCell>
+        <!-- Data Flows (arrows with labels) -->
+        <mxCell id="20" value="user credentials" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="2" target="10">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="180" y="100" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="21" value="fingerprint data" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="4" target="10">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="180" y="160" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="22" value="auth result" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="10" target="11">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="350" y="120" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="23" value="temperature data" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="5" target="11">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="180" y="220" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="24" value="attendance record" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="11" target="15">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="600" y="220" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="25" value="attendance record" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="11" target="6">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="900" y="100" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="26" value="attendance record" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="11" target="8">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="900" y="160" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="27" value="user data" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="10" target="16">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="600" y="100" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="28" value="admin config" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="3" target="12">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="180" y="340" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="29" value="config update" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="12" target="17">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="600" y="280" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="30" value="config update" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="12" target="9">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="900" y="220" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="31" value="dashboard data" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="13" target="2">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="600" y="100" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="32" value="dashboard data" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="13" target="3">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="600" y="340" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="33" value="dashboard data" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="13" target="15">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="600" y="220" as="offset"/></mxGeometry>
+        </mxCell>
+        <mxCell id="34" value="notification" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=1;" edge="1" parent="1" source="14" target="7">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="900" y="340" as="offset"/></mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 
