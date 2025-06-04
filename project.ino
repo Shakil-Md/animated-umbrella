@@ -16,6 +16,14 @@ bool fingerprintReady = false;
 bool sdCardReady = false;
 bool wifiConnected = false;
 
+// WiFi reconnection parameters
+unsigned long lastWiFiRetry = 0;
+const unsigned long WIFI_RETRY_INTERVAL = 5000;  // Wait 5 seconds between retries
+const unsigned long WIFI_BACKOFF_MAX = 300000;   // Maximum 5 minutes between retries
+unsigned long currentBackoff = WIFI_RETRY_INTERVAL;
+int wifiReconnectAttempts = 0;
+const int WIFI_MAX_ATTEMPTS = 10;  // Reset after 10 failed attempts
+
 void setup() {
   Serial.begin(115200);
 
@@ -195,29 +203,69 @@ void loop() {
   // Update battery display
   updateBatteryDisplay();
 
-  // Check WiFi connection
+  // Check WiFi connection with improved reconnection logic
   if (WiFi.status() != WL_CONNECTED) {
     if (wifiConnected) {
-      Serial.println("WiFi disconnected, attempting to reconnect...");
+      // First disconnect detected
+      Serial.println("WiFi disconnected, will attempt to reconnect...");
       tft.fillScreen(TFT_WHITE);
       tft.fillRect(0, 15, 128, 30, TFT_WHITE);
       tft.setTextColor(TFT_RED);
       tft.setCursor(2, 20);
       tft.println("WiFi disconnected!");
-      tft.setCursor(2, 30);
-      tft.println("Reconnecting...");
       wifiConnected = false;
+      lastWiFiRetry = 0;  // Reset to trigger immediate first retry
+      wifiReconnectAttempts = 0;
+      currentBackoff = WIFI_RETRY_INTERVAL;
     }
-    WiFi.reconnect();
-    if (WiFi.status() == WL_CONNECTED) {
-      wifiConnected = true;
-      tft.fillScreen(TFT_WHITE);
-      tft.fillRect(0, 15, 128, 30, TFT_WHITE);
-      tft.setTextColor(TFT_GREEN);
-      tft.setCursor(2, 20);
-      tft.println("WiFi reconnected!");
-      delay(1000);
+    
+    // Check if it's time for next retry
+    if (millis() - lastWiFiRetry >= currentBackoff) {
+      wifiReconnectAttempts++;
+      Serial.printf("WiFi reconnection attempt %d/%d\n", wifiReconnectAttempts, WIFI_MAX_ATTEMPTS);
+      
+      tft.fillRect(0, 30, 128, 20, TFT_WHITE);
+      tft.setCursor(2, 30);
+      tft.printf("Retry %d/%d...", wifiReconnectAttempts, WIFI_MAX_ATTEMPTS);
+      
+      WiFi.reconnect();
+      lastWiFiRetry = millis();
+      
+      // Implement exponential backoff (double the wait time after each attempt)
+      if (currentBackoff < WIFI_BACKOFF_MAX) {
+        currentBackoff *= 2;
+      }
+      
+      // If we've tried too many times, reset WiFi
+      if (wifiReconnectAttempts >= WIFI_MAX_ATTEMPTS) {
+        Serial.println("Max reconnection attempts reached, resetting WiFi...");
+        WiFi.disconnect();
+        delay(1000);
+        setupWiFi();
+        wifiReconnectAttempts = 0;
+        currentBackoff = WIFI_RETRY_INTERVAL;
+      }
     }
+  } else if (!wifiConnected) {
+    // WiFi just reconnected
+    wifiConnected = true;
+    wifiReconnectAttempts = 0;
+    currentBackoff = WIFI_RETRY_INTERVAL;
+    
+    Serial.println("WiFi reconnected to: " + WiFi.SSID());
+    tft.fillScreen(TFT_WHITE);
+    tft.fillRect(0, 15, 128, 30, TFT_WHITE);
+    tft.setTextColor(TFT_GREEN);
+    tft.setCursor(2, 20);
+    tft.println("WiFi reconnected!");
+    tft.setCursor(2, 30);
+    tft.println("SSID: " + WiFi.SSID());
+    
+    // Notify via Telegram
+    String reconnectMsg = "WiFi Reconnected!\nSSID: " + WiFi.SSID() + "\nIP: " + WiFi.localIP().toString();
+    sendTelegramMessage(reconnectMsg.c_str());
+    
+    delay(2000);  // Show the success message for 2 seconds
   }
 
   // Check memory periodically
