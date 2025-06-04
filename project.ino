@@ -227,8 +227,31 @@ void loop() {
       tft.fillRect(0, 30, 128, 20, TFT_WHITE);
       tft.setCursor(2, 30);
       tft.printf("Retry %d/%d...", wifiReconnectAttempts, WIFI_MAX_ATTEMPTS);
-      
-      WiFi.reconnect();
+
+      bool reconnectSuccess = WiFi.reconnect();
+      if (!reconnectSuccess) {
+        Serial.println("WiFi reconnection command failed to send");
+        tft.setTextColor(TFT_RED);
+        tft.setCursor(2, 40);
+        tft.println("Reconnect failed!");
+      } else {
+        // Wait a bit to see if connection establishes
+        unsigned long waitStart = millis();
+        while (millis() - waitStart < 5000) {  // Wait up to 5 seconds
+          if (WiFi.status() == WL_CONNECTED) {
+            Serial.println("WiFi connection established");
+            break;
+          }
+          delay(100);
+        }
+        // Final connection check
+        if (WiFi.status() != WL_CONNECTED) {
+          Serial.println("WiFi reconnection attempt timed out");
+          tft.setTextColor(TFT_RED);
+          tft.setCursor(2, 40);
+          tft.println("Connect timeout!");
+        }
+      }
       lastWiFiRetry = millis();
       
       // Implement exponential backoff (double the wait time after each attempt)
