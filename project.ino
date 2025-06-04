@@ -6,6 +6,7 @@
 #include "src/utils/memory_utils.h"
 #include "src/components/fingerprint.h"
 #include "src/components/network.h"
+#include "src/components/battery.h"
 #include "src/webserver/server_init.h"
 
 // Global variable to track system status
@@ -26,14 +27,8 @@ void setup() {
   rgbLED.setPixelColor(0, rgbLED.Color(0, 0, 0));
   rgbLED.show();
 
-  // Initialize display
-  tft.init(INITR_BLACKTAB);
-  tft.setRotation(1);
-  tft.fillScreen(TFT_WHITE);
-  tft.setTextColor(TFT_BLACK);
-  tft.setTextSize(1);
-  tft.setCursor(2, 20);
-  tft.println("System starting...");
+  // Initialize battery monitoring
+  setupBattery();
 
   // Initialize SD card with error handling
   int sdRetries = 0;
@@ -196,6 +191,9 @@ void loop() {
     delay(1000);  // Wait before checking again
     return;
   }
+
+  // Update battery display
+  updateBatteryDisplay();
 
   // Check WiFi connection
   if (WiFi.status() != WL_CONNECTED) {
