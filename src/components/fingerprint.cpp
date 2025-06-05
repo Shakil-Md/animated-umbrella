@@ -25,6 +25,38 @@ bool setupFingerprint() {
   return true;
 }
 
+// Function to save fingerprint template to SD card
+bool saveTemplateToSD(uint16_t id, const uint8_t *templateData, uint16_t templateSize) {
+  // Create fingerprint templates directory if it doesn't exist
+  if (!SD.exists("/fingerprints")) {
+    if (!SD.mkdir("/fingerprints")) {
+      Serial.println("Failed to create fingerprints directory");
+      return false;
+    }
+  }
+
+  // Create file path for the template
+  String filePath = "/fingerprints/" + String(id) + ".dat";
+  
+  // Open file for writing
+  File file = SD.open(filePath, FILE_WRITE);
+  if (!file) {
+    Serial.println("Failed to create template file");
+    return false;
+  }
+
+  // Write template data
+  if (file.write(templateData, templateSize) != templateSize) {
+    Serial.println("Failed to write template data");
+    file.close();
+    return false;
+  }
+
+  file.close();
+  return true;
+}
+
+// Original scanFingerprint function with modifications
 void scanFingerprint() {
   rgbLED.setPixelColor(0, rgbLED.Color(0, 0, 0));
   rgbLED.show();  // Ensure LED is off initially
@@ -95,7 +127,28 @@ void scanFingerprint() {
   if (finger.storeModel(addid) == FINGERPRINT_OK) {
     Serial.println("Fingerprint enrolled successfully!");
     tft.println("Fingerprint enrolled successfully!");
-    setRGBColor(0, 255, 0);  // Set RGB LED to green (success)
+    
+    // Get the template data from the sensor
+    uint8_t templateBuffer[512];  // Buffer to store template data
+    uint16_t templateSize = 0;
+    
+    if (finger.getTemplate(addid, templateBuffer, &templateSize) == FINGERPRINT_OK) {
+      // Save template to SD card
+      if (saveTemplateToSD(addid, templateBuffer, templateSize)) {
+        Serial.println("Template backup saved to SD card");
+        tft.println("Template backup saved");
+        setRGBColor(0, 255, 0);  // Set RGB LED to green (complete success)
+      } else {
+        Serial.println("Failed to save template backup");
+        tft.println("Warning: Backup failed");
+        setRGBColor(0, 255, 55);  // Set RGB LED to blue-green (partial success)
+      }
+    } else {
+      Serial.println("Failed to read template from sensor");
+      tft.println("Warning: Backup failed");
+      setRGBColor(0, 255, 55);  // Set RGB LED to blue-green (partial success)
+    }
+    
     server.send(200, "text/plain", "Fingerprint enrolled successfully");
   } else {
     Serial.println("Failed to store fingerprint model.");
@@ -376,4 +429,4 @@ void continuousFingerprintScan() {
       setRGBColor(0, 0, 55);  // Return to blue
     }
   }
-} 
+}
